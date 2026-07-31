@@ -23,6 +23,27 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.progress {
+  background-color: #e9eef8;
+}
+
+.progress-bar {
+  transition: width 0.2s ease-in-out;
+}
+
+.placeholder {
+  display: inline-block;
+  min-height: 0.8rem;
+  border-radius: 999px;
+  background-color: #e7edf7;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
 .card {
   background: rgba(255, 255, 255, 0.95);
 }

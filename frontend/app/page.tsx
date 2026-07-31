@@ -72,6 +72,33 @@ function formatCoordinate(value: number) {
   return value.toFixed(4);
 }
 
+function getRecommendationReasons(recommendation: Recommendation, radiusMeters: number | null) {
+  const reasons: string[] = [];
+
+  if (recommendation.availability_score >= 0.6) {
+    reasons.push("High availability");
+  }
+
+  if (recommendation.distance_to_origin_km <= 0.7) {
+    reasons.push("Very close to your start");
+  }
+
+  const walkRadiusLimitKm = radiusMeters ? radiusMeters / 1000 : null;
+  if (walkRadiusLimitKm && recommendation.distance_to_destination_km <= walkRadiusLimitKm) {
+    reasons.push("Within your walk radius");
+  } else if (recommendation.distance_to_destination_km <= 0.3) {
+    reasons.push("Within your walk radius");
+  }
+
+  return reasons;
+}
+
+function getBarPercent(value: number, maxValue: number, inverse = false) {
+  const normalized = Math.max(0, Math.min(1, value / maxValue));
+  const percent = inverse ? 100 - normalized * 100 : normalized * 100;
+  return Math.round(Math.max(0, Math.min(100, percent)));
+}
+
 async function fetchPlaceLabel(location: LatLng): Promise<PlaceLabel> {
   try {
     const response = await fetch(
@@ -448,25 +475,83 @@ export default function Home() {
                         <p className="text-muted small mb-0">Izaberi cilj na mapi da vidiš najbolje parkinge.</p>
                       )}
                       {recommendationLoading && (
-                        <div className="d-flex align-items-center gap-2 text-muted small">
-                          <div className="spinner-border spinner-border-sm" role="status" aria-label="Loading" />
-                          Učitavanje preporuka...
+                        <div className="d-flex flex-column gap-2 mt-2">
+                          {Array.from({ length: 3 }).map((_, index) => (
+                            <div key={index} className="border rounded-3 p-2 bg-light">
+                              <div className="placeholder-glow">
+                                <span className="placeholder col-7 mb-2" />
+                                <span className="placeholder col-5" />
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="overflow-auto mt-2 flex-grow-1">
-                        {recommendations.map((r, i) => (
-                          <div key={r.park_id} className="border rounded-3 p-2 mt-2 bg-white">
-                            <div className="d-flex justify-content-between align-items-start gap-2">
-                              <div className="fw-semibold small">{i + 1}. {r.park_id}</div>
-                              <span className="badge bg-success-subtle text-success-emphasis">{r.score.toFixed(2)}</span>
-                            </div>
-                            <div className="small text-muted mt-1">Predviđena popunjenost: {r.predicted_occupancy_rate}%</div>
-                            <div className="small text-muted">Dostupnost: {r.availability_score}</div>
-                            <div className="small text-muted">Drive (d_A): {r.distance_to_origin_km} km</div>
-                            <div className="small text-muted">Walk (d_B): {r.distance_to_destination_km} km</div>
-                          </div>
-                        ))}
-                      </div>
+                      {!recommendationLoading && destination && recommendations.length === 0 && (
+                        <div className="border rounded-3 p-3 mt-2 bg-light text-center">
+                          <div className="fw-semibold">Nema parkinga u trenutnom skupu</div>
+                          <div className="small text-muted mt-1">Pokušaj da povećaš radius ili promeniš lokaciju.</div>
+                        </div>
+                      )}
+                      {!recommendationLoading && (!destination || recommendations.length > 0) && (
+                        <div className="overflow-auto mt-2 flex-grow-1">
+                          {recommendations.map((r, i) => {
+                            const reasons = getRecommendationReasons(r, radiusMeters ? Number(radiusMeters) : null);
+                            const availabilityPercent = getBarPercent(r.availability_score, 1);
+                            const drivePercent = getBarPercent(r.distance_to_origin_km, 2, true);
+                            const walkPercent = getBarPercent(r.distance_to_destination_km, 1, true);
+
+                            return (
+                              <div key={r.park_id} className="border rounded-3 p-2 mt-2 bg-white shadow-sm">
+                                <div className="d-flex justify-content-between align-items-start gap-2">
+                                  <div className="fw-semibold small">{i + 1}. {r.park_id}</div>
+                                  <span className="badge bg-success-subtle text-success-emphasis">{r.score.toFixed(2)}</span>
+                                </div>
+                                <div className="small text-muted mt-1">Predviđena popunjenost: {r.predicted_occupancy_rate}%</div>
+                                <div className="small text-muted">Dostupnost: {r.availability_score.toFixed(4)}</div>
+                                <div className="small text-muted">Drive (d_A): {r.distance_to_origin_km.toFixed(2)} km</div>
+                                <div className="small text-muted">Walk (d_B): {r.distance_to_destination_km.toFixed(2)} km</div>
+
+                                {reasons.length > 0 && (
+                                  <div className="d-flex flex-wrap gap-1 mt-2">
+                                    {reasons.map((reason) => (
+                                      <span key={reason} className="badge bg-primary-subtle text-primary-emphasis">
+                                        {reason}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="mt-2">
+                                  <div className="small text-muted mb-1">Score breakdown</div>
+                                  <div className="d-flex flex-column gap-1">
+                                    <div className="d-flex align-items-center gap-2">
+                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Availability</span>
+                                      <div className="progress flex-grow-1" style={{ height: "6px" }}>
+                                        <div className="progress-bar bg-success" style={{ width: `${availabilityPercent}%` }} />
+                                      </div>
+                                      <span className="small text-muted">{availabilityPercent}%</span>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Drive</span>
+                                      <div className="progress flex-grow-1" style={{ height: "6px" }}>
+                                        <div className="progress-bar bg-info" style={{ width: `${drivePercent}%` }} />
+                                      </div>
+                                      <span className="small text-muted">{drivePercent}%</span>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Walk</span>
+                                      <div className="progress flex-grow-1" style={{ height: "6px" }}>
+                                        <div className="progress-bar bg-warning" style={{ width: `${walkPercent}%` }} />
+                                      </div>
+                                      <span className="small text-muted">{walkPercent}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
