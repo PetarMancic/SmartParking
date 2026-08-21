@@ -76,18 +76,18 @@ function getRecommendationReasons(recommendation: Recommendation, radiusMeters: 
   const reasons: string[] = [];
 
   if (recommendation.availability_score >= 0.6) {
-    reasons.push("High availability");
+    reasons.push("Velika dostupnost");
   }
 
   if (recommendation.distance_to_origin_km <= 0.7) {
-    reasons.push("Very close to your start");
+    reasons.push("Vrlo blizu početne tačke");
   }
 
   const walkRadiusLimitKm = radiusMeters ? radiusMeters / 1000 : null;
   if (walkRadiusLimitKm && recommendation.distance_to_destination_km <= walkRadiusLimitKm) {
-    reasons.push("Within your walk radius");
+    reasons.push("U okviru radijusa hodanja");
   } else if (recommendation.distance_to_destination_km <= 0.3) {
-    reasons.push("Within your walk radius");
+    reasons.push("U okviru radijusa hodanja");
   }
 
   return reasons;
@@ -426,7 +426,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="rounded-4 overflow-hidden border border-secondary-subtle shadow-sm" style={{ minHeight: 480 }}>
+                <div className="rounded-4 overflow-hidden border border-secondary-subtle shadow-sm" style={{ height: "75vh", minHeight: 640 }}>
                   <ParkingMap
                     parks={parks}
                     startLocation={currentLocation}
@@ -508,8 +508,8 @@ export default function Home() {
                                 </div>
                                 <div className="small text-muted mt-1">Predviđena popunjenost: {r.predicted_occupancy_rate}%</div>
                                 <div className="small text-muted">Dostupnost: {r.availability_score.toFixed(4)}</div>
-                                <div className="small text-muted">Drive (d_A): {r.distance_to_origin_km.toFixed(2)} km</div>
-                                <div className="small text-muted">Walk (d_B): {r.distance_to_destination_km.toFixed(2)} km</div>
+                                <div className="small text-muted">Vožnja (d_A): {r.distance_to_origin_km.toFixed(2)} km</div>
+                                <div className="small text-muted">Hodanje (d_B): {r.distance_to_destination_km.toFixed(2)} km</div>
 
                                 {reasons.length > 0 && (
                                   <div className="d-flex flex-wrap gap-1 mt-2">
@@ -522,24 +522,24 @@ export default function Home() {
                                 )}
 
                                 <div className="mt-2">
-                                  <div className="small text-muted mb-1">Score breakdown</div>
+                                  <div className="small text-muted mb-1">Raspodela skora</div>
                                   <div className="d-flex flex-column gap-1">
                                     <div className="d-flex align-items-center gap-2">
-                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Availability</span>
+                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Dostupnost</span>
                                       <div className="progress flex-grow-1" style={{ height: "6px" }}>
                                         <div className="progress-bar bg-success" style={{ width: `${availabilityPercent}%` }} />
                                       </div>
                                       <span className="small text-muted">{availabilityPercent}%</span>
                                     </div>
                                     <div className="d-flex align-items-center gap-2">
-                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Drive</span>
+                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Vožnja</span>
                                       <div className="progress flex-grow-1" style={{ height: "6px" }}>
                                         <div className="progress-bar bg-info" style={{ width: `${drivePercent}%` }} />
                                       </div>
                                       <span className="small text-muted">{drivePercent}%</span>
                                     </div>
                                     <div className="d-flex align-items-center gap-2">
-                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Walk</span>
+                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Hodanje</span>
                                       <div className="progress flex-grow-1" style={{ height: "6px" }}>
                                         <div className="progress-bar bg-warning" style={{ width: `${walkPercent}%` }} />
                                       </div>

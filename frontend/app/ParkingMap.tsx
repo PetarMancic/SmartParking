@@ -151,9 +151,9 @@ export default function ParkingMap({
             <Popup>
               <strong>{park.park_id}</strong>
               <br />
-              Drive (d_A): {park.distance_to_origin_km} km
+              Vožnja (d_A): {park.distance_to_origin_km} km
               <br />
-              Walk (d_B): {park.distance_to_destination_km} km
+              Hodanje (d_B): {park.distance_to_destination_km} km
               <br />
               Predviđena popunjenost: {park.predicted_occupancy_rate}%
             </Popup>
