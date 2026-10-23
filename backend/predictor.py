@@ -1,55 +1,99 @@
 """
-Predictor - ucitava ml/model.joblib pri startu i daje predikciju OccupancyRate
-za dati parking i vreme.
+Predictor (redizajnirano 2026-10-17) - gradi feature red za simulirano "sada"
+i BILO KOJI horizont (u koracima od 30 min), koristi jedan
+ml/model_norfolk.joblib kome je horizont obicna ulazna promenljiva
+(`horizon_minutes`) - vidi ml/data_prep.py i PROGRESS.md za razlog izmene
+(profesor nije trazio fiksna tri horizonta, samo "sta god je moguce").
+
+Feature-i su racunati iz apsolutnog vremena (now, target_time) - pogodno za
+predikciju jedne tacke u svakom simulacionom tick-u.
 """
+
+from __future__ import annotations
 
 import os
 
 import joblib
+import numpy as np
 import pandas as pd
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "ml", "model.joblib")
+from ml.data_prep import HOLIDAYS, MAX_HORIZON_STEPS
 
-DAY_NAME_TO_NUM = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "ml", "model_norfolk.joblib")
 
 _bundle = joblib.load(MODEL_PATH)
 _model = _bundle["model"]
-_park_encoder = _bundle["park_encoder"]
-_features = _bundle["features"]
+_FEATURES = _bundle["features"]
+_CARPARK_CATEGORIES = _bundle["carpark_categories"]
+_HORIZON_STEPS_RANGE = _bundle.get("horizon_steps_range", list(range(1, MAX_HORIZON_STEPS + 1)))
+_MAX_HORIZON_STEPS = max(_HORIZON_STEPS_RANGE)
+_MIN_HORIZON_STEPS = min(_HORIZON_STEPS_RANGE)
 
 
-def known_park_ids() -> set:
-    return set(_park_encoder.classes_)
+def carpark_categories() -> list[str]:
+    return _CARPARK_CATEGORIES
 
 
-def parse_day(day) -> int:
-    """Prihvata dan kao broj (0=pon..6=ned) ili ime (Mon, tue, WED, ...)."""
-    if isinstance(day, int) or (isinstance(day, str) and day.strip().isdigit()):
-        return int(day)
-    key = str(day).strip().lower()[:3]
-    if key not in DAY_NAME_TO_NUM:
-        raise ValueError(f"Nepoznat dan: {day!r} (ocekivano Mon..Sun ili 0..6)")
-    return DAY_NAME_TO_NUM[key]
+def max_horizon_steps() -> int:
+    return _MAX_HORIZON_STEPS
 
 
-def predict_occupancy_rate(park_id: str, hour: int, minute: int, day, capacity: float) -> float:
-    if park_id not in known_park_ids():
-        raise ValueError(f"Nepoznat park_id: {park_id}")
+def _lookup(history: pd.Series, time: pd.Timestamp) -> float:
+    return history.get(time, np.nan)
 
-    day_num = parse_day(day)
-    park_encoded = _park_encoder.transform([park_id])[0]
 
-    row = pd.DataFrame(
-        [
-            {
-                "Hour": hour,
-                "Minute": minute,
-                "DayOfWeekNum": day_num,
-                "ParkEncoded": park_encoded,
-                "Capacity": capacity,
-            }
-        ]
-    )[_features]
+def build_feature_row(
+    history: pd.Series,
+    now: pd.Timestamp,
+    horizon_steps: int,
+    park_id: str,
+    capacity: float,
+    carpark_categories: list[str],
+) -> pd.DataFrame:
+    target_time = now + pd.Timedelta(minutes=30 * horizon_steps)
 
-    prediction = float(_model.predict(row)[0])
-    return min(max(prediction, 0.0), 100.0)
+    y_t = _lookup(history, now)
+    y_t1 = _lookup(history, now - pd.Timedelta(minutes=30))
+
+    row = {
+        "y_t": y_t,
+        "y_t1": y_t1,
+        "y_t2": _lookup(history, now - pd.Timedelta(minutes=60)),
+        "delta": y_t - y_t1,
+        "y_yesterday": _lookup(history, target_time - pd.Timedelta(days=1)),
+        "y_lastweek": _lookup(history, target_time - pd.Timedelta(days=7)),
+        "hour": target_time.hour + target_time.minute / 60,
+        "dow": target_time.dayofweek,
+        "weekend": int(target_time.dayofweek >= 5),
+        "holiday": int(target_time.normalize() in HOLIDAYS),
+        "carpark": park_id,
+        "capacity": capacity,
+        "horizon_minutes": 30 * horizon_steps,
+    }
+    frame = pd.DataFrame([row])
+    frame["carpark"] = pd.Categorical(frame["carpark"], categories=carpark_categories)
+    return frame[_FEATURES]
+
+
+def predict_rate(
+    history: pd.Series,
+    now: pd.Timestamp,
+    horizon_steps: int,
+    park_id: str,
+    capacity: float,
+    carpark_categories: list[str] | None = None,
+) -> float | None:
+    """Predvidjena stopa zauzetosti (0-1) za dati horizont (u koracima od 30
+    min, 1..MAX_HORIZON_STEPS), ili None ako nema trenutnog ocitavanja (rupa u
+    podacima - nema smisla predvidjati) ili je horizont van treniranog opsega."""
+    if not (_MIN_HORIZON_STEPS <= horizon_steps <= _MAX_HORIZON_STEPS):
+        raise ValueError(
+            f"Horizont van treniranog opsega: {horizon_steps} koraka "
+            f"(dozvoljeno {_MIN_HORIZON_STEPS}-{_MAX_HORIZON_STEPS})"
+        )
+    if pd.isna(_lookup(history, now)):
+        return None
+
+    categories = carpark_categories or _CARPARK_CATEGORIES
+    row = build_feature_row(history, now, horizon_steps, park_id, capacity, categories)
+    return float(np.clip(_model.predict(row)[0], 0, 1))

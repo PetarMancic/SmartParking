@@ -19,3 +19,6 @@ frontend/.next/
 .DS_Store
 .vscode/
 .idea/
+# Word privremeni fajlovi
+~$*
+~WRL*.tmp

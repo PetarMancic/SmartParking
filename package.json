@@ -1,0 +1,9 @@
+{
+  "name": "smart-parking",
+  "private": true,
+  "description": "Koren projekta - kratke npm komande za pokretanje backend/frontend servera (vidi README.md).",
+  "scripts": {
+    "backend": "uvicorn backend.main:app --reload",
+    "frontend": "npm --prefix frontend run dev"
+  }
+}

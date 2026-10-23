@@ -1,23 +1,34 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import type { Park, Recommendation, RouteParking } from "./ParkingMap";
+import { useEffect, useMemo, useState } from "react";
+import { displayOccupancy } from "./occupancy";
+import type { HistoryResponse, Park, ParkState, Recommendation, RouteParking } from "./ParkingMap";
 
 const ParkingMap = dynamic(() => import("./ParkingMap"), { ssr: false });
 
-type Prediction = {
-  park_id: string;
-  capacity: number;
-  predicted_occupancy_rate: number;
-  predicted_available_spots: number;
-  availability_score: number;
-};
-
 const API_URL = "http://127.0.0.1:8000";
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const POLL_INTERVAL_MS = 3000;
 const ROUTE_DISTANCE_LIMIT_KM = 2.0;
 const ROUTE_RESULT_LIMIT = 5;
+const SPEED_OPTIONS = [1, 2, 10, 60, 500];
+
+// Vreme u danu, na 30-min mrezi - isto kao mreza merenja senzora (poglavlje 3).
+// "now" je posebna vrednost = trenutno simulirano vreme (bez biranja).
+const TIME_OF_DAY_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, "0");
+  const m = i % 2 === 0 ? "00" : "30";
+  return `${h}:${m}`;
+});
+
+type SimulationState = {
+  current_time: string;
+  running: boolean;
+  speed_minutes_per_second: number;
+  tick_minutes: number;
+  grid_start: string;
+  grid_end: string;
+};
 
 type LatLng = { lat: number; lng: number };
 type RouteData = { geometry: [number, number][]; distanceKm: number; durationMin: number };
@@ -68,8 +79,10 @@ function distanceToRouteKm(lat: number, lng: number, geometry: [number, number][
   return minDistance;
 }
 
-function formatCoordinate(value: number) {
-  return value.toFixed(4);
+function formatSimTime(iso: string | null) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleString("sr-RS", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function getRecommendationReasons(recommendation: Recommendation, radiusMeters: number | null) {
@@ -127,27 +140,101 @@ async function fetchPlaceLabel(location: LatLng): Promise<PlaceLabel> {
 
 export default function Home() {
   const [parks, setParks] = useState<Park[]>([]);
+  const [parkStates, setParkStates] = useState<Record<string, ParkState>>({});
+  const [historyByPark, setHistoryByPark] = useState<Record<string, HistoryResponse>>({});
+  const [simState, setSimState] = useState<SimulationState | null>(null);
+  const [speed, setSpeed] = useState(2);
+  const [viewTime, setViewTime] = useState<string>("now"); // "now" ili "HH:MM"
+
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [destination, setDestination] = useState<LatLng | null>(null);
-  const [hour, setHour] = useState(12);
-  const [day, setDay] = useState("Mon");
+  const [pendingMapClick, setPendingMapClick] = useState<LatLng | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recommendationLoading, setRecommendationLoading] = useState(false);
   const [radiusMeters, setRadiusMeters] = useState<string>("");
   const [route, setRoute] = useState<RouteData | null>(null);
-  const [routeParkings, setRouteParkings] = useState<RouteParking[]>([]);
   const [routeLoading, setRouteLoading] = useState(false);
-  const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startPlace, setStartPlace] = useState<PlaceLabel | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<PlaceLabel | null>(null);
 
+  // Parkovi + simulirano stanje - ucitaj jednom i onda pollaj (poglavlje 7).
   useEffect(() => {
     fetch(`${API_URL}/parks`)
       .then((res) => res.json())
       .then(setParks)
       .catch(() => setError("Ne mogu da učitam listu parkinga. Da li backend radi na :8000?"));
   }, []);
+
+  // Datum simuliranog "sada" (samo datumski deo) - izabrano vreme u danu se
+  // vezuje za taj isti datum, da bi target_time bio apsolutan ISO trenutak.
+  const simDateStr = simState?.current_time ? simState.current_time.slice(0, 10) : null;
+
+  const targetTimeIso = useMemo(() => {
+    if (viewTime === "now" || !simDateStr) return null;
+    return `${simDateStr}T${viewTime}:00`;
+  }, [viewTime, simDateStr]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const poll = () => {
+      fetch(`${API_URL}/simulation/state`)
+        .then((res) => res.json())
+        .then((data) => !cancelled && setSimState(data))
+        .catch(() => !cancelled && setError("Ne mogu da učitam simulacioni sat."));
+
+      const stateParams = new URLSearchParams();
+      if (targetTimeIso) stateParams.set("target_time", targetTimeIso);
+
+      fetch(`${API_URL}/state?${stateParams}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          const byId: Record<string, ParkState> = {};
+          for (const p of data.parks ?? []) byId[p.park_id] = p;
+          setParkStates(byId);
+        })
+        .catch(() => !cancelled && setError("Ne mogu da učitam stanje parkinga."));
+    };
+
+    poll();
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [targetTimeIso]);
+
+  const handleStart = () => {
+    setError(null);
+    fetch(`${API_URL}/simulation/start?speed=${speed}`, { method: "POST" })
+      .then((res) => res.json())
+      .then(setSimState)
+      .catch(() => setError("Ne mogu da pokrenem simulaciju."));
+  };
+
+  const handlePause = () => {
+    fetch(`${API_URL}/simulation/pause`, { method: "POST" })
+      .then((res) => res.json())
+      .then(setSimState)
+      .catch(() => setError("Ne mogu da pauziram simulaciju."));
+  };
+
+  const handleSpeedChange = (value: number) => {
+    setSpeed(value);
+    fetch(`${API_URL}/simulation/speed?factor=${value}`, { method: "POST" })
+      .then((res) => res.json())
+      .then(setSimState)
+      .catch(() => undefined);
+  };
+
+  const handlePopupOpen = (parkId: string) => {
+    fetch(`${API_URL}/history?park_id=${encodeURIComponent(parkId)}`)
+      .then((res) => res.json())
+      .then((data: HistoryResponse) => setHistoryByPark((prev) => ({ ...prev, [parkId]: data })))
+      .catch(() => undefined);
+  };
 
   useEffect(() => {
     if (!currentLocation) {
@@ -181,12 +268,15 @@ export default function Home() {
       origin_lng: String(currentLocation.lng),
       dest_lat: String(destination.lat),
       dest_lng: String(destination.lng),
-      hour: String(hour),
-      day,
     });
 
     if (radiusMeters) {
       params.set("radius", radiusMeters);
+    }
+    if (targetTimeIso) {
+      // Vozac ne krece nuzno odmah - ako je izabrano vreme u buducnosti,
+      // koristi se kao vreme polaska (dolazak se racuna od tog trenutka).
+      params.set("departure_time", targetTimeIso);
     }
 
     fetch(`${API_URL}/recommend?${params}`)
@@ -194,39 +284,15 @@ export default function Home() {
       .then(setRecommendations)
       .catch(() => setError("Ne mogu da učitam preporuke."))
       .finally(() => setRecommendationLoading(false));
-  }, [currentLocation, destination, hour, day, radiusMeters]);
-
-  useEffect(() => {
-    if (!destination) {
-      setPrediction(null);
-      return;
-    }
-
-    setError(null);
-
-    fetch(`${API_URL}/predict_current?hour=${hour}&day=${day}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data.parks) && data.parks.length) {
-          setPrediction(data.parks[0]);
-        } else {
-          setPrediction(null);
-        }
-      })
-      .catch(() => {
-        setPrediction(null);
-        setError("Ne mogu da učitam trenutnu predikciju parkinga.");
-      });
-  }, [destination, hour, day]);
+  }, [currentLocation, destination, radiusMeters, targetTimeIso]);
 
   useEffect(() => {
     if (!currentLocation || !destination) {
       setRoute(null);
-      setRouteParkings([]);
       return;
     }
 
-    const fetchRouteAndParkings = async () => {
+    const fetchRoute = async () => {
       setRouteLoading(true);
       setError(null);
 
@@ -238,7 +304,6 @@ export default function Home() {
 
         if (!geometry.length) {
           setRoute(null);
-          setRouteParkings([]);
           setError("Ruta nije pronađena za ove dve lokacije.");
           return;
         }
@@ -246,51 +311,43 @@ export default function Home() {
         const distanceKm = routeJson.routes[0].distance / 1000;
         const durationMin = routeJson.routes[0].duration / 60;
         setRoute({ geometry, distanceKm, durationMin });
-
-        const candidates = await Promise.all(
-          parks.map(async (park) => {
-            const routeDistanceKm = distanceToRouteKm(park.lat, park.lng, geometry);
-            if (routeDistanceKm > ROUTE_DISTANCE_LIMIT_KM) {
-              return null;
-            }
-
-            let predictedOccupancyRate = 0;
-            try {
-              const predictionResponse = await fetch(
-                `${API_URL}/predict?park_id=${encodeURIComponent(park.park_id)}&hour=${hour}&day=${day}`
-              );
-              const predictionJson = await predictionResponse.json();
-              predictedOccupancyRate = predictionJson.predicted_occupancy_rate ?? 0;
-            } catch {
-              predictedOccupancyRate = 0;
-            }
-
-            return {
-              park_id: park.park_id,
-              lat: park.lat,
-              lng: park.lng,
-              distanceToRouteKm: Number(routeDistanceKm.toFixed(2)),
-              predicted_occupancy_rate: Number(predictedOccupancyRate.toFixed(2)),
-              availability_score: Number(((100 - predictedOccupancyRate) / 100).toFixed(4)),
-            } satisfies RouteParking;
-          })
-        );
-
-        const validCandidates = candidates
-          .filter((candidate): candidate is RouteParking => Boolean(candidate))
-          .sort((left, right) => left.distanceToRouteKm - right.distanceToRouteKm)
-          .slice(0, ROUTE_RESULT_LIMIT);
-
-        setRouteParkings(validCandidates);
       } catch {
-        setError("Ne mogu da učitam rutu i parkirališta uz nju.");
+        setError("Ne mogu da učitam rutu.");
       } finally {
         setRouteLoading(false);
       }
     };
 
-    fetchRouteAndParkings();
-  }, [currentLocation, destination, parks, hour, day]);
+    fetchRoute();
+  }, [currentLocation, destination]);
+
+  // Parkinzi uz rutu - izvedeno iz vec ucitanog /state (bez dodatnih poziva po parkingu).
+  const routeParkings: RouteParking[] = useMemo(() => {
+    if (!route || route.geometry.length < 2) return [];
+
+    const candidates = parks
+      .filter((p) => p.lat !== null && p.lng !== null)
+      .map((park) => {
+        const dist = distanceToRouteKm(park.lat as number, park.lng as number, route.geometry);
+        if (dist > ROUTE_DISTANCE_LIMIT_KM) return null;
+
+        const state = parkStates[park.park_id];
+        const occupancyRate = displayOccupancy(state);
+
+        return {
+          park_id: park.park_id,
+          lat: park.lat as number,
+          lng: park.lng as number,
+          distanceToRouteKm: Number(dist.toFixed(2)),
+          occupancyRate,
+        } satisfies RouteParking;
+      })
+      .filter((c): c is RouteParking => c !== null)
+      .sort((a, b) => a.distanceToRouteKm - b.distanceToRouteKm)
+      .slice(0, ROUTE_RESULT_LIMIT);
+
+    return candidates;
+  }, [route, parks, parkStates]);
 
   const handleMapClick = (lat: number, lng: number) => {
     if (!currentLocation) {
@@ -304,22 +361,54 @@ export default function Home() {
       return;
     }
 
-    setCurrentLocation({ lat, lng });
+    // Ruta je vec izabrana - ne brisi je odmah (lak je slucajan klik u vozilu),
+    // nego trazi potvrdu pre nego sto se zameni.
+    setPendingMapClick({ lat, lng });
+  };
+
+  const confirmNewRoute = () => {
+    if (!pendingMapClick) return;
+    setCurrentLocation(pendingMapClick);
     setDestination(null);
     setRoute(null);
-    setRouteParkings([]);
+    setPendingMapClick(null);
   };
+
+  const cancelNewRoute = () => setPendingMapClick(null);
 
   const resetSelection = () => {
     setCurrentLocation(null);
     setDestination(null);
     setRoute(null);
-    setRouteParkings([]);
     setRecommendations([]);
+    setPendingMapClick(null);
   };
 
   return (
     <main className="py-3 px-2 px-lg-3">
+      {pendingMapClick && (
+        <div
+          className="d-flex align-items-center justify-content-center"
+          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.45)", zIndex: 2000 }}
+        >
+          <div className="card border-0 shadow-lg rounded-4" style={{ maxWidth: 360 }}>
+            <div className="card-body p-4">
+              <h2 className="h6 mb-2">Zameniti trenutnu rutu?</h2>
+              <p className="small text-muted mb-3">
+                Već imaš izabranu rutu i preporuke. Klik na mapu bi obrisao trenutnu rutu i postavio novu početnu tačku. Da li si siguran?
+              </p>
+              <div className="d-flex gap-2 justify-content-end">
+                <button type="button" onClick={cancelNewRoute} className="btn btn-outline-secondary btn-sm">
+                  Otkaži
+                </button>
+                <button type="button" onClick={confirmNewRoute} className="btn btn-danger btn-sm">
+                  Obriši i započni novu rutu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="container-fluid">
         <div className="card border-0 shadow-lg rounded-4 overflow-hidden">
           <div className="card-body p-3 p-lg-3">
@@ -329,7 +418,7 @@ export default function Home() {
                   <div>
                     <div className="d-inline-flex align-items-center gap-2 px-2 py-1 rounded-pill bg-primary-subtle text-primary-emphasis mb-2">
                       <span className="rounded-circle bg-gradient" style={{ width: 8, height: 8, background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }} />
-                      <span className="small fw-semibold">Smart Parking</span>
+                      <span className="small fw-semibold">Smart Parking · Norfolk</span>
                     </div>
                     <h1 className="h5 mb-1">Ruta i preporuka parkinga</h1>
                     <p className="text-muted small mb-0">
@@ -344,28 +433,44 @@ export default function Home() {
                 <div className="card border-0 mb-2" style={{ background: "linear-gradient(135deg, #eef6ff 0%, #fdf2f8 100%)" }}>
                   <div className="card-body">
                     <div className="row g-3 align-items-end">
-                      <div className="col-12 col-md-4">
-                        <label className="form-label fw-semibold">Sat</label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={23}
-                          value={hour}
-                          onChange={(e) => setHour(Number(e.target.value))}
-                          className="form-control"
-                        />
+                      <div className="col-12 col-md-5">
+                        <label className="form-label fw-semibold">Simulacija</label>
+                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                          <span className="fw-semibold">{formatSimTime(simState?.current_time ?? null)}</span>
+                          {simState?.running ? (
+                            <button type="button" onClick={handlePause} className="btn btn-sm btn-warning">Pauza</button>
+                          ) : (
+                            <button type="button" onClick={handleStart} className="btn btn-sm btn-success">Start</button>
+                          )}
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ width: 110 }}
+                            value={speed}
+                            onChange={(e) => handleSpeedChange(Number(e.target.value))}
+                          >
+                            {SPEED_OPTIONS.map((s) => (
+                              <option key={s} value={s}>{s}x</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div className="col-12 col-md-4">
-                        <label className="form-label fw-semibold">Dan</label>
-                        <select value={day} onChange={(e) => setDay(e.target.value)} className="form-select">
-                          {DAYS.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
+                        <label className="form-label fw-semibold">Vreme (mapa i polazak)</label>
+                        <select
+                          className="form-select form-select-sm"
+                          value={viewTime}
+                          onChange={(e) => setViewTime(e.target.value)}
+                        >
+                          <option value="now">Sada</option>
+                          {TIME_OF_DAY_OPTIONS.map((t) => (
+                            <option key={t} value={t}>{t}</option>
                           ))}
                         </select>
+                        <div className="form-text">
+                          Prošlost/sadašnjost = izmereno; budućnost = predikcija (do ~15.5h unapred).
+                        </div>
                       </div>
-                      <div className="col-12 col-md-4">
+                      <div className="col-12 col-md-3">
                         <label className="form-label fw-semibold">Radius (m, opcionalno)</label>
                         <input
                           type="number"
@@ -419,7 +524,7 @@ export default function Home() {
                         {route ? (
                           <div className="fw-semibold mt-2">{route.distanceKm.toFixed(1)} km • {Math.round(route.durationMin)} min</div>
                         ) : (
-                          <div className="text-muted mt-2">Čeka se ruta</div>
+                          <div className="text-muted mt-2">{routeLoading ? "Učitavanje rute..." : "Čeka se ruta"}</div>
                         )}
                       </div>
                     </div>
@@ -429,6 +534,9 @@ export default function Home() {
                 <div className="rounded-4 overflow-hidden border border-secondary-subtle shadow-sm" style={{ height: "75vh", minHeight: 640 }}>
                   <ParkingMap
                     parks={parks}
+                    parkStates={parkStates}
+                    historyByPark={historyByPark}
+                    onPopupOpen={handlePopupOpen}
                     startLocation={currentLocation}
                     destination={destination}
                     routeGeometry={route?.geometry ?? []}
@@ -449,17 +557,19 @@ export default function Home() {
                     </div>
                   )}
 
-                  {prediction && (
+                  {routeParkings.length > 0 && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-body">
                         <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h2 className="h6 mb-0">Najbolji parking po modelu</h2>
-                          <span className="badge bg-primary-subtle text-primary-emphasis">Predikcija</span>
+                          <h2 className="h6 mb-0">Parkinzi uz rutu</h2>
+                          <span className="badge bg-info-subtle text-info-emphasis">{routeParkings.length}</span>
                         </div>
-                        <div className="fw-semibold">{prediction.park_id}</div>
-                        <div className="small text-muted mt-2">Predviđena popunjenost: {prediction.predicted_occupancy_rate}%</div>
-                        <div className="small text-muted">Dostupnost: {prediction.availability_score}</div>
-                        <div className="small text-muted">Slobodna mesta: {prediction.predicted_available_spots}</div>
+                        {routeParkings.map((p) => (
+                          <div key={p.park_id} className="small d-flex justify-content-between border-bottom py-1">
+                            <span>{p.park_id} ({p.distanceToRouteKm} km od rute)</span>
+                            <span className="fw-semibold">{p.occupancyRate !== null ? `${p.occupancyRate.toFixed(0)}%` : "-"}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -506,10 +616,9 @@ export default function Home() {
                                   <div className="fw-semibold small">{i + 1}. {r.park_id}</div>
                                   <span className="badge bg-success-subtle text-success-emphasis">{r.score.toFixed(2)}</span>
                                 </div>
-                                <div className="small text-muted mt-1">Predviđena popunjenost: {r.predicted_occupancy_rate}%</div>
-                                <div className="small text-muted">Dostupnost: {r.availability_score.toFixed(4)}</div>
-                                <div className="small text-muted">Vožnja (d_A): {r.distance_to_origin_km.toFixed(2)} km</div>
-                                <div className="small text-muted">Hodanje (d_B): {r.distance_to_destination_km.toFixed(2)} km</div>
+                                <div className="small text-muted mt-1">
+                                  Predikcija za dolazak (~{Math.round(r.eta_minutes)} min, horizont {r.horizon_minutes} min): {r.predicted_occupancy_rate}%
+                                </div>
 
                                 {reasons.length > 0 && (
                                   <div className="d-flex flex-wrap gap-1 mt-2">

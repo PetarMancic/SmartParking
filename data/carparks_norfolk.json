@@ -1,0 +1,161 @@
+{
+  "_comment": "Koordinate Norfolk (Norwich) parkinga za master rad. Potvrdjene koordinate dobijene iz postanskog broja preko postcodes.io - vidi MASTER_PLAN.md poglavlje 5 za izvor uparivanja sifri (Norfolk County Council live feed) i kriterijum. Neuparene sifre (confirmed=false) NEMAJU izmisljene koordinate - lat/lon su null dok se ne potvrde.",
+  "parks": [
+    {
+      "code": "CPN0017",
+      "name": "Chantry Place (Chapelfield)",
+      "capacity": 975,
+      "postcode": "NR2 1RG",
+      "lat": 52.627165,
+      "lon": 1.290466,
+      "type": "grad",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0016",
+      "name": "Thickthorn Park & Ride",
+      "capacity": 726,
+      "postcode": "NR9 3AU",
+      "lat": 52.604088,
+      "lon": 1.219142,
+      "type": "Park & Ride",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0015",
+      "name": "Harford Park & Ride",
+      "capacity": 1014,
+      "postcode": "NR4 6US",
+      "lat": 52.587446,
+      "lon": 1.268158,
+      "type": "Park & Ride",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0004",
+      "name": "Castle Quarter 1",
+      "capacity": 705,
+      "postcode": "NR1 3JQ",
+      "lat": 52.629114,
+      "lon": 1.297338,
+      "type": "grad",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0005",
+      "name": "Castle Quarter 2",
+      "capacity": 80,
+      "postcode": "NR1 3DD",
+      "lat": 52.626668,
+      "lon": 1.29606,
+      "type": "grad",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0007",
+      "name": "Rose Lane",
+      "capacity": 595,
+      "postcode": "NR1 1PY",
+      "lat": 52.627444,
+      "lon": 1.302755,
+      "type": "grad",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0009",
+      "name": "The Forum",
+      "capacity": 209,
+      "postcode": "NR2 1TF",
+      "lat": 52.627392,
+      "lon": 1.29202,
+      "type": "grad",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0012",
+      "name": "Sprowston Park & Ride",
+      "capacity": 792,
+      "postcode": "NR7 8RN",
+      "lat": 52.663359,
+      "lon": 1.3328,
+      "type": "Park & Ride",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0014",
+      "name": "Costessey Park & Ride",
+      "capacity": 1100,
+      "postcode": "NR9 3LX",
+      "lat": 52.639919,
+      "lon": 1.186221,
+      "type": "Park & Ride",
+      "confirmed": true
+    },
+    {
+      "code": "CPN0003",
+      "name": null,
+      "capacity": 638,
+      "postcode": null,
+      "lat": null,
+      "lon": null,
+      "type": null,
+      "confirmed": false,
+      "note": "Neuparena sifra - proveriti (vidi MASTER_PLAN.md, poglavlje 5)."
+    },
+    {
+      "code": "CPN0006",
+      "name": null,
+      "capacity": 304,
+      "postcode": null,
+      "lat": null,
+      "lon": null,
+      "type": null,
+      "confirmed": false,
+      "note": "Neuparena sifra - proveriti."
+    },
+    {
+      "code": "CPN0008",
+      "name": null,
+      "capacity": 1047,
+      "postcode": null,
+      "lat": null,
+      "lon": null,
+      "type": null,
+      "confirmed": false,
+      "note": "Neuparena sifra - proveriti."
+    },
+    {
+      "code": "CPN0011",
+      "name": null,
+      "capacity": 620,
+      "postcode": null,
+      "lat": null,
+      "lon": null,
+      "type": null,
+      "confirmed": false,
+      "note": "Neuparena sifra - proveriti."
+    },
+    {
+      "code": "CPN0013",
+      "name": null,
+      "capacity": 552,
+      "postcode": null,
+      "lat": null,
+      "lon": null,
+      "type": null,
+      "confirmed": false,
+      "note": "Neuparena sifra - verovatno Park & Ride (niska zauzetost, nule nedeljom, kao CPN0012/14/15) - proveriti."
+    },
+    {
+      "code": "C06391",
+      "name": null,
+      "capacity": 585,
+      "postcode": null,
+      "lat": null,
+      "lon": null,
+      "type": null,
+      "confirmed": false,
+      "note": "Neuparena sifra, drugaciji format koda - proveriti."
+    }
+  ]
+}

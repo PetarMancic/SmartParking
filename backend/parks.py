@@ -1,50 +1,46 @@
 """
-Koordinate i kapacitet parkinga.
-
-NAPOMENA O KOORDINATAMA: dataset (data/parking.csv) ne sadrzi geografske
-koordinate. Koordinate su RUCNO DODELJENE / FIKTIVNE priblizne lokacije
-rasporedjene oko centra Birminghama, ucitane iz data/park_coordinates.json
-(konfiguracija, ne hardkodovano u kodu) - koriste se samo za demo mapu i
-racunanje udaljenosti u ovom PoC-u, ne predstavljaju stvarne GPS pozicije
-ovih parkinga. Kapacitet se cita direktno iz dataseta (stvaran podatak).
+Spisak Norfolk parkinga - kapacitet se cita iz data/raw/Norfolk.csv (stvaran
+podatak), koordinate/ime/tip iz data/carparks_norfolk.json (poglavlje 5,
+MASTER_PLAN.md). Neuparene sifre imaju lat/lng = None i confirmed = False -
+ne izmisljaju se koordinate.
 """
 
 import json
 import os
 
-import pandas as pd
+from ml.data_prep import DEFAULT_CITY, load_raw
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "parking.csv")
-COORDINATES_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "park_coordinates.json")
+COORDINATES_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "carparks_norfolk.json")
 
 with open(COORDINATES_PATH, encoding="utf-8") as f:
-    _coordinates_config = json.load(f)
+    _coords_config = json.load(f)
 
-DEFAULT_COORDINATES = tuple(_coordinates_config["default"])
-FICTIONAL_COORDINATES = {park_id: tuple(coords) for park_id, coords in _coordinates_config["parks"].items()}
+_COORDS_BY_CODE = {entry["code"]: entry for entry in _coords_config["parks"]}
 
 
-def load_parks() -> list[dict]:
-    df = pd.read_csv(DATA_PATH)
+def load_parks(city: str = DEFAULT_CITY) -> list[dict]:
+    df = load_raw(city)
     capacities = df.groupby("SystemCodeNumber")["Capacity"].first()
 
     parks = []
     for park_id, capacity in capacities.items():
-        lat, lng = FICTIONAL_COORDINATES.get(park_id, DEFAULT_COORDINATES)
+        meta = _COORDS_BY_CODE.get(park_id, {})
         parks.append(
             {
                 "park_id": park_id,
+                "name": meta.get("name"),
                 "capacity": int(capacity),
-                "lat": lat,
-                "lng": lng,
+                "lat": meta.get("lat"),
+                "lng": meta.get("lon"),
+                "type": meta.get("type"),
+                "confirmed": meta.get("confirmed", False),
             }
         )
     return parks
 
 
-def get_park(park_id: str) -> dict | None:
-    for park in load_parks():
+def get_park(park_id: str, city: str = DEFAULT_CITY) -> dict | None:
+    for park in load_parks(city):
         if park["park_id"] == park_id:
             return park
     return None
-

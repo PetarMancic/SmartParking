@@ -1,29 +1,39 @@
 """
-Faza 4 - Modul za preporuku parkinga.
+Modul za preporuku parkinga (CLAUDE.md princip: predikcija i preporuka su
+odvojeni moduli; preporuka je ponderisano rangiranje, NE ML).
 
-Rangira parkinge po ponderisanom skoru:
+    skor = w1 * predvidjena_dostupnost + w2 * blizina_polasku - w3 * saobracaj
 
-    skor = w1 * predvidjena_dostupnost + w2 * blizina_destinaciji - w3 * saobracaj
-
-Ovo NIJE ML zadatak - obicno ponderisano rangiranje, namerno odvojeno od
-predikcije (backend/predictor.py), po principu iz CLAUDE.md.
+Predikcija se radi za procenjeno vreme DOLASKA do parkinga, po poglavlju 6
+MASTER_PLAN.md ("ako koristi zauzetost, treba da koristi predvidjenu
+zauzetost za vreme dolaska"). Podrzan je i opcioni `departure_time` (npr.
+vozac zna da krece u 17h, ne odmah) - tada se dolazak racuna od tog vremena,
+ne od simuliranog "sada". Horizont je proizvoljan broj koraka od 30 min (ne
+vise ograncen na 30min/1h/2h - vidi backend/predictor.py i PROGRESS.md), samo
+ogranicen treniranim opsegom (predictor.max_horizon_steps()).
 """
+
+from __future__ import annotations
 
 import math
 
+import pandas as pd
+
 from backend import parks as parks_module
 from backend import predictor
+from backend.datasource import DataSource
+from backend.simulator import SimulationClock
 
 # Ponderi - konstante, lako izmenljive radi eksperimentisanja.
 W1_PREDICTED_AVAILABILITY = 0.55
 W2_PROXIMITY = 0.3
 W3_TRAFFIC = 0.15
 
-# Traffic density je simuliran kao jednostavan signal na osnovu udaljenosti
-# od destinacije i trenutnog sata. U master radu ovo se zamenjuje stvarnim
-# podacima o saobracaju ili eksternim API-jem.
-
 TOP_N_DEFAULT = 5
+
+# Nema ruting API-ja na backendu (frontend to radi preko OSRM-a za prikaz
+# rute) - gruba procena vremena dolaska samo da se izabere horizont predikcije.
+ASSUMED_DRIVE_SPEED_KMH = 30.0
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -35,42 +45,54 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * earth_radius_km * math.asin(math.sqrt(a))
 
 
-def _traffic_density_score(distance_km: float, hour: int) -> float:
-    peak_hour_penalty = 0.0
-    if 7 <= hour <= 9 or 16 <= hour <= 19:
-        peak_hour_penalty = 0.25
+def _horizon_steps_for_arrival(now: pd.Timestamp, arrival_time: pd.Timestamp) -> int:
+    """Horizont (koraci od 30 min) od simuliranog 'sada' do procenjenog
+    dolaska, zaokruzen na mrezu i ogranicen na treniran opseg."""
+    diff_minutes = (arrival_time - now).total_seconds() / 60
+    steps = max(1, round(diff_minutes / 30))
+    return min(steps, predictor.max_horizon_steps())
 
+
+def _traffic_density_score(distance_km: float, hour: int) -> float:
+    peak_hour_penalty = 0.25 if (7 <= hour <= 9 or 16 <= hour <= 19) else 0.0
     proximity_penalty = min(0.35, distance_km / 10.0)
     return min(1.0, peak_hour_penalty + proximity_penalty)
 
 
 def recommend_parks(
+    data_source: DataSource,
+    clock: SimulationClock,
+    carpark_categories: list[str],
     origin_lat: float,
     origin_lng: float,
     dest_lat: float,
     dest_lng: float,
-    hour: int,
-    day,
     top_n: int = TOP_N_DEFAULT,
     radius_meters: float | None = None,
+    departure_time: pd.Timestamp | None = None,
 ) -> list[dict]:
+    now = clock.current_time
+    start_time = departure_time if departure_time is not None else now
     all_parks = parks_module.load_parks()
     candidates = []
 
     for park in all_parks:
+        if park["lat"] is None or park["lng"] is None:
+            continue  # nepotvrdjena lokacija - ne izmisljamo koordinate za preporuku
+
         distance_to_origin_km = _haversine_km(origin_lat, origin_lng, park["lat"], park["lng"])
         distance_to_destination_km = _haversine_km(dest_lat, dest_lng, park["lat"], park["lng"])
 
-        if radius_meters is not None:
-            radius_km = radius_meters / 1000.0
-            if distance_to_destination_km > radius_km:
-                continue
+        if radius_meters is not None and distance_to_destination_km > radius_meters / 1000.0:
+            continue
 
-        try:
-            occupancy_rate = predictor.predict_occupancy_rate(
-                park_id=park["park_id"], hour=hour, minute=0, day=day, capacity=park["capacity"]
-            )
-        except ValueError:
+        eta_minutes = distance_to_origin_km / ASSUMED_DRIVE_SPEED_KMH * 60.0
+        arrival_time = start_time + pd.Timedelta(minutes=eta_minutes)
+        horizon_steps = _horizon_steps_for_arrival(now, arrival_time)
+
+        history = data_source.history_until(park["park_id"], now)
+        rate = predictor.predict_rate(history, now, horizon_steps, park["park_id"], park["capacity"], carpark_categories)
+        if rate is None:
             continue
 
         candidates.append(
@@ -78,8 +100,10 @@ def recommend_parks(
                 "park_id": park["park_id"],
                 "lat": park["lat"],
                 "lng": park["lng"],
-                "predicted_occupancy_rate": round(occupancy_rate, 2),
-                "availability_score": round(1 - occupancy_rate / 100, 4),
+                "eta_minutes": round(eta_minutes, 1),
+                "horizon_minutes": horizon_steps * 30,
+                "predicted_occupancy_rate": round(rate * 100, 2),
+                "availability_score": round(1 - rate, 4),
                 "distance_to_origin_km": round(distance_to_origin_km, 2),
                 "distance_to_destination_km": round(distance_to_destination_km, 2),
             }
@@ -88,13 +112,14 @@ def recommend_parks(
     if not candidates:
         return []
 
-    max_drive_distance_km = max(candidate["distance_to_origin_km"] for candidate in candidates) or 1.0
+    max_drive_distance_km = max(c["distance_to_origin_km"] for c in candidates) or 1.0
+    hour = now.hour
 
     results = []
-    for candidate in candidates:
-        predicted_availability = 1 - candidate["predicted_occupancy_rate"] / 100
-        closeness = 1 - (candidate["distance_to_origin_km"] / max_drive_distance_km)
-        traffic = _traffic_density_score(candidate["distance_to_destination_km"], hour)
+    for c in candidates:
+        predicted_availability = c["availability_score"]
+        closeness = 1 - (c["distance_to_origin_km"] / max_drive_distance_km)
+        traffic = _traffic_density_score(c["distance_to_destination_km"], hour)
 
         score = (
             W1_PREDICTED_AVAILABILITY * predicted_availability
@@ -104,19 +129,12 @@ def recommend_parks(
 
         results.append(
             {
-                "park_id": candidate["park_id"],
-                "lat": candidate["lat"],
-                "lng": candidate["lng"],
-                "predicted_occupancy_rate": candidate["predicted_occupancy_rate"],
-                "availability_score": candidate["availability_score"],
-                "distance_to_origin_km": candidate["distance_to_origin_km"],
-                "distance_to_destination_km": candidate["distance_to_destination_km"],
-                "distance_km": candidate["distance_to_destination_km"],
+                **c,
                 "score": round(score, 4),
                 "score_components": {
                     "predicted_availability": round(predicted_availability, 4),
                     "closeness": round(closeness, 4),
-                    "traffic": traffic,
+                    "traffic": round(traffic, 4),
                     "weights": {
                         "w1_predicted_availability": W1_PREDICTED_AVAILABILITY,
                         "w2_proximity": W2_PROXIMITY,
