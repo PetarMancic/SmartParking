@@ -1,0 +1,218 @@
+﻿model,horizon_minutes,MAE,RMSE,n_test
+poslednja vrednost,30,5.07,7.42,23335
+poslednja vrednost,60,9.89,14.02,22435
+poslednja vrednost,90,14.33,19.85,21504
+poslednja vrednost,120,18.26,24.81,20573
+poslednja vrednost,150,21.58,28.8,19642
+poslednja vrednost,180,24.27,31.87,18713
+poslednja vrednost,210,26.45,34.22,17827
+poslednja vrednost,240,28.21,36.01,16943
+poslednja vrednost,270,29.68,37.43,16057
+poslednja vrednost,300,30.93,38.53,15172
+poslednja vrednost,330,31.97,39.38,14287
+poslednja vrednost,360,32.77,40.01,13405
+poslednja vrednost,390,33.32,40.45,12509
+poslednja vrednost,420,33.64,40.83,11615
+poslednja vrednost,450,33.75,41.15,10721
+poslednja vrednost,480,33.74,41.43,9826
+poslednja vrednost,510,33.79,41.66,8953
+poslednja vrednost,540,33.92,41.93,8072
+poslednja vrednost,570,32.88,41.23,7626
+poslednja vrednost,600,31.77,40.27,7251
+poslednja vrednost,630,30.8,39.27,6906
+poslednja vrednost,660,29.99,38.31,6611
+poslednja vrednost,690,29.6,37.66,6336
+poslednja vrednost,720,29.34,37.3,6322
+poslednja vrednost,750,29.67,37.84,6294
+poslednja vrednost,780,30.03,38.57,6530
+poslednja vrednost,810,30.86,39.57,6786
+poslednja vrednost,840,31.85,40.59,7079
+poslednja vrednost,870,32.98,41.49,7433
+poslednja vrednost,900,34.17,42.18,7853
+poslednja vrednost,930,34.24,41.95,8699
+pre nedelju dana,30,5.62,9.56,23335
+pre nedelju dana,60,5.83,9.87,22435
+pre nedelju dana,90,6.02,10.25,21504
+pre nedelju dana,120,6.17,10.64,20573
+pre nedelju dana,150,6.3,11.05,19642
+pre nedelju dana,180,6.43,11.43,18713
+pre nedelju dana,210,6.54,11.75,17827
+pre nedelju dana,240,6.65,12.03,16943
+pre nedelju dana,270,6.78,12.29,16057
+pre nedelju dana,300,6.89,12.46,15172
+pre nedelju dana,330,6.98,12.59,14287
+pre nedelju dana,360,7.03,12.66,13405
+pre nedelju dana,390,7.05,12.69,12509
+pre nedelju dana,420,7.06,12.7,11615
+pre nedelju dana,450,7.13,12.94,10721
+pre nedelju dana,480,7.19,13.1,9826
+pre nedelju dana,510,7.31,13.35,8953
+pre nedelju dana,540,7.5,13.74,8072
+pre nedelju dana,570,7.54,13.92,7626
+pre nedelju dana,600,7.57,14.11,7251
+pre nedelju dana,630,7.62,14.23,6906
+pre nedelju dana,660,7.67,14.28,6611
+pre nedelju dana,690,7.66,14.08,6336
+pre nedelju dana,720,7.41,13.61,6322
+pre nedelju dana,750,7.22,13.16,6294
+pre nedelju dana,780,6.81,12.47,6530
+pre nedelju dana,810,6.42,11.76,6786
+pre nedelju dana,840,5.98,10.96,7079
+pre nedelju dana,870,5.71,10.58,7433
+pre nedelju dana,900,5.68,10.57,7853
+pre nedelju dana,930,5.73,10.68,8699
+tipicna kriva,30,7.02,10.46,23335
+tipicna kriva,60,7.11,10.56,22435
+tipicna kriva,90,7.14,10.59,21504
+tipicna kriva,120,7.12,10.57,20573
+tipicna kriva,150,7.05,10.51,19642
+tipicna kriva,180,6.96,10.42,18713
+tipicna kriva,210,6.89,10.38,17827
+tipicna kriva,240,6.83,10.34,16943
+tipicna kriva,270,6.78,10.32,16057
+tipicna kriva,300,6.73,10.32,15172
+tipicna kriva,330,6.7,10.31,14287
+tipicna kriva,360,6.65,10.31,13405
+tipicna kriva,390,6.59,10.3,12509
+tipicna kriva,420,6.53,10.3,11615
+tipicna kriva,450,6.47,10.32,10721
+tipicna kriva,480,6.44,10.4,9826
+tipicna kriva,510,6.51,10.69,8953
+tipicna kriva,540,6.5,10.78,8072
+tipicna kriva,570,7.68,12.82,7626
+tipicna kriva,600,8.1,13.56,7251
+tipicna kriva,630,8.33,13.82,6906
+tipicna kriva,660,8.6,14.05,6611
+tipicna kriva,690,8.93,14.31,6336
+tipicna kriva,720,9.13,14.43,6322
+tipicna kriva,750,9.24,14.48,6294
+tipicna kriva,780,9.67,14.86,6530
+tipicna kriva,810,9.49,14.58,6786
+tipicna kriva,840,9.46,14.55,7079
+tipicna kriva,870,9.32,14.31,7433
+tipicna kriva,900,9.3,14.16,7853
+tipicna kriva,930,9.07,13.8,8699
+Ridge,30,6.12,8.9,23335
+Ridge,60,6.16,9.01,22435
+Ridge,90,6.24,9.18,21504
+Ridge,120,6.34,9.33,20573
+Ridge,150,6.47,9.5,19642
+Ridge,180,6.59,9.66,18713
+Ridge,210,6.7,9.8,17827
+Ridge,240,6.8,9.91,16943
+Ridge,270,6.9,9.99,16057
+Ridge,300,6.97,10.06,15172
+Ridge,330,7.02,10.11,14287
+Ridge,360,7.05,10.13,13405
+Ridge,390,7.06,10.14,12509
+Ridge,420,7.06,10.15,11615
+Ridge,450,7.11,10.24,10721
+Ridge,480,7.17,10.35,9826
+Ridge,510,7.28,10.54,8953
+Ridge,540,7.47,10.83,8072
+Ridge,570,7.56,11.0,7626
+Ridge,600,7.64,11.14,7251
+Ridge,630,7.74,11.17,6906
+Ridge,660,7.81,11.14,6611
+Ridge,690,7.81,10.97,6336
+Ridge,720,7.65,10.63,6322
+Ridge,750,7.57,10.41,6294
+Ridge,780,7.43,10.13,6530
+Ridge,810,7.35,9.91,6786
+Ridge,840,7.22,9.65,7079
+Ridge,870,7.15,9.54,7433
+Ridge,900,7.14,9.56,7853
+Ridge,930,7.08,9.55,8699
+Random Forest,30,3.35,5.66,23335
+Random Forest,60,3.75,6.27,22435
+Random Forest,90,4.17,6.93,21504
+Random Forest,120,4.48,7.42,20573
+Random Forest,150,4.69,7.74,19642
+Random Forest,180,4.84,7.98,18713
+Random Forest,210,4.98,8.19,17827
+Random Forest,240,5.08,8.36,16943
+Random Forest,270,5.18,8.49,16057
+Random Forest,300,5.29,8.66,15172
+Random Forest,330,5.38,8.79,14287
+Random Forest,360,5.46,8.91,13405
+Random Forest,390,5.52,9.01,12509
+Random Forest,420,5.58,9.13,11615
+Random Forest,450,5.67,9.29,10721
+Random Forest,480,5.75,9.46,9826
+Random Forest,510,5.85,9.67,8953
+Random Forest,540,5.98,9.91,8072
+Random Forest,570,5.99,10.02,7626
+Random Forest,600,5.96,10.1,7251
+Random Forest,630,5.92,10.06,6906
+Random Forest,660,5.9,9.95,6611
+Random Forest,690,5.82,9.66,6336
+Random Forest,720,5.53,9.1,6322
+Random Forest,750,5.32,8.67,6294
+Random Forest,780,4.98,8.12,6530
+Random Forest,810,4.7,7.63,6786
+Random Forest,840,4.42,7.12,7079
+Random Forest,870,4.22,6.78,7433
+Random Forest,900,4.19,6.71,7853
+Random Forest,930,4.26,6.77,8699
+HistGradientBoosting,30,3.17,4.94,23335
+HistGradientBoosting,60,3.7,5.86,22435
+HistGradientBoosting,90,4.18,6.69,21504
+HistGradientBoosting,120,4.51,7.26,20573
+HistGradientBoosting,150,4.77,7.65,19642
+HistGradientBoosting,180,4.96,7.97,18713
+HistGradientBoosting,210,5.1,8.18,17827
+HistGradientBoosting,240,5.22,8.34,16943
+HistGradientBoosting,270,5.32,8.48,16057
+HistGradientBoosting,300,5.41,8.61,15172
+HistGradientBoosting,330,5.5,8.74,14287
+HistGradientBoosting,360,5.57,8.84,13405
+HistGradientBoosting,390,5.64,8.95,12509
+HistGradientBoosting,420,5.69,9.04,11615
+HistGradientBoosting,450,5.77,9.21,10721
+HistGradientBoosting,480,5.85,9.37,9826
+HistGradientBoosting,510,5.92,9.55,8953
+HistGradientBoosting,540,6.06,9.79,8072
+HistGradientBoosting,570,6.03,9.85,7626
+HistGradientBoosting,600,5.99,9.88,7251
+HistGradientBoosting,630,5.94,9.81,6906
+HistGradientBoosting,660,5.91,9.68,6611
+HistGradientBoosting,690,5.83,9.4,6336
+HistGradientBoosting,720,5.58,8.94,6322
+HistGradientBoosting,750,5.39,8.55,6294
+HistGradientBoosting,780,5.1,8.03,6530
+HistGradientBoosting,810,4.86,7.6,6786
+HistGradientBoosting,840,4.61,7.13,7079
+HistGradientBoosting,870,4.47,6.87,7433
+HistGradientBoosting,900,4.48,6.83,7853
+HistGradientBoosting,930,4.57,6.91,8699
+XGBoost,30,2.87,4.52,23335
+XGBoost,60,3.45,5.55,22435
+XGBoost,90,3.95,6.4,21504
+XGBoost,120,4.29,6.97,20573
+XGBoost,150,4.55,7.39,19642
+XGBoost,180,4.78,7.75,18713
+XGBoost,210,4.95,8.0,17827
+XGBoost,240,5.07,8.18,16943
+XGBoost,270,5.15,8.31,16057
+XGBoost,300,5.25,8.44,15172
+XGBoost,330,5.33,8.57,14287
+XGBoost,360,5.41,8.68,13405
+XGBoost,390,5.48,8.79,12509
+XGBoost,420,5.54,8.91,11615
+XGBoost,450,5.62,9.05,10721
+XGBoost,480,5.71,9.22,9826
+XGBoost,510,5.8,9.41,8953
+XGBoost,540,5.94,9.67,8072
+XGBoost,570,5.92,9.75,7626
+XGBoost,600,5.87,9.79,7251
+XGBoost,630,5.83,9.74,6906
+XGBoost,660,5.8,9.57,6611
+XGBoost,690,5.72,9.31,6336
+XGBoost,720,5.5,8.88,6322
+XGBoost,750,5.3,8.48,6294
+XGBoost,780,5.0,7.94,6530
+XGBoost,810,4.75,7.48,6786
+XGBoost,840,4.49,6.99,7079
+XGBoost,870,4.34,6.74,7433
+XGBoost,900,4.36,6.7,7853
+XGBoost,930,4.45,6.77,8699

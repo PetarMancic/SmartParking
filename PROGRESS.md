@@ -132,7 +132,7 @@ Testirano u browseru (backend :8000, frontend :3000): skok na datum, otkrivanje,
 **Nalazi bitni za rad i odbranu:**
 - **Dani za demo:** subota 18.11.2017 (model bolji od tipične krive na sva 4 gradska parkinga; Castle Quarter 1: 1,18 naspram 6,59 p.p.) i utorak 17.10.2017 (Chantry Place 3,28 naspram 9,83).
 - **Ne koristiti 14.10.2017 za demo.** Prethodne subote (7.10.) nema podataka (rupa u CSV-u), pa je `y_lastweek` prazan za ceo dan i model je znatno lošiji od tipične krive (Chantry Place 9,18 naspram 1,48 p.p.). Ovo je dobar primer za diskusiju o **otpornosti na nedostajuće podatke**: model je u treningu retko video prazan `y_lastweek`.
-- **Model naspram baseline-ova na celom test periodu:** tipična kriva (prosek dana u nedelji i slota) ima MAE 6,92 p.p., a „isto vreme pre nedelju dana” 5,55 p.p. Model je bolji od tipične krive na svim horizontima (najviše 5,94). Od baseline-a „pre nedelju dana” je bolji do oko 4 h, a na dužim horizontima (5,07–5,94) je praktično izjednačen. Lag feature-i nose kratke horizonte, a dugi se svode na sezonski obrazac. Detaljno poređenje na istim redovima je deo koraka 5.
+- **Model naspram baseline-ova na celom test periodu:** tipična kriva (prosek dana u nedelji i slota) ima MAE 6,92 p.p., a „isto vreme pre nedelju dana” 5,55 p.p. Model je bolji od tipične krive na svim horizontima (najviše 5,94). ~~Od baseline-a „pre nedelju dana” je bolji do oko 4 h, a na dužim horizontima praktično izjednačen.~~ **ISPRAVLJENO u koraku 4:** ovaj zaključak je bio pogrešan, jer je MAE modela po horizontu poređen sa jednim ukupnim brojem za baseline, izračunatim na drugim redovima. Na istim redovima model je bolji od „pre nedelju dana” na **svakom** horizontu; prednost se smanjuje sa ~2,9 p.p. (30 min) na ~0,6–1 p.p. (4–15 h).
 
 ### Korak 3 — Evaluacija preporuke (`ml/eval_recommender.py`) ✅
 
@@ -163,3 +163,43 @@ Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 17,5%,
 **Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i `ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
 
 **Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su samo 9 parkinga sa koordinatama; ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); w3 (saobraćaj) je heuristika. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
+
+### Korak 4 — Poređenje modela (`ml/compare_models.py`) ✅
+
+Svi modeli koriste isti trening skup (2.007.700 redova, svih 31 horizonata), isti test (373.315 redova, 1.10.–5.12.2017), iste ulaze i istu hronološku podelu. XGBoost je **model koji aplikacija stvarno koristi** (`ml/model_norfolk.joblib`), bez novog treninga.
+
+| Model | MAE | RMSE | 30 min | 2 h | 4 h | 8 h | 15 h | Trening | Predikcija po redu |
+|---|---|---|---|---|---|---|---|---|---|
+| **XGBoost** | **4,83** | **7,90** | **2,87** | **4,29** | **5,07** | **5,71** | 4,36 | (ranije) | 16 µs |
+| Random Forest | 4,92 | 8,21 | 3,35 | 4,48 | 5,08 | 5,75 | **4,19** | 29 s | 4 µs |
+| HistGradientBoosting | 5,00 | 8,08 | 3,17 | 4,51 | 5,22 | 5,85 | 4,48 | 47 s | 13 µs |
+| Pre nedelju dana (baseline) | 6,61 | 11,92 | 5,62 | 6,17 | 6,65 | 7,19 | 5,68 | – | – |
+| Ridge (linearni) | 6,88 | 9,90 | 6,12 | 6,34 | 6,80 | 7,17 | 7,14 | 18 s | 2 µs |
+| Tipična kriva (baseline) | 7,36 | 11,45 | 7,02 | 7,12 | 6,83 | 6,44 | 9,30 | – | – |
+| Poslednja vrednost (baseline) | 25,89 | 34,49 | 5,07 | 18,26 | 28,21 | 33,74 | 34,17 | – | – |
+
+(MAE/RMSE u p.p. zauzetosti; pun opseg horizonata u `ml/output/poredjenje_modela_po_horizontu.csv`, grafik `ml/output/poredjenje_modela.png`.)
+
+Napomene o postavci:
+- „Pre nedelju dana” koristi poslednju vrednost tamo gde podatak od pre nedelju dana fali (~3% redova).
+- Random Forest: svako stablo vidi 10% trening skupa (`max_samples=0.1`) zbog vremena.
+- HistGradientBoosting ima isti budžet kao XGBoost (400 iteracija, korak 0,05, dubina 6).
+- Nijedan model nije posebno podešavan; XGBoost parametri su iz referentnog eksperimenta.
+
+**XGBoost naspram „pre nedelju dana” na istim redovima** (samo gde postoji `y_lastweek`, 96,7% test skupa):
+
+| Horizont | XGBoost | Pre nedelju dana |
+|---|---|---|
+| 30 min | 2,77 | 5,65 |
+| 2 h | 4,19 | 5,82 |
+| 4 h | 4,93 | 5,97 |
+| 8 h | 5,59 | 6,38 |
+| 10 h | 5,80 | 6,71 |
+| 15 h | 4,19 | 4,79 |
+
+**Zaključci za rad („zašto XGBoost?”):**
+1. **Modeli sa stablima su jasno najbolji.** XGBoost, Random Forest i HistGradientBoosting su na 4,8–5,0 p.p. ukupno. Linearni Ridge (6,88) je lošiji čak i od prostog „pre nedelju dana” (6,61): ne može da modeluje da značaj trenutne zauzetosti zavisi od horizonta (na 30 min je presudna, na 8 h skoro nebitna). Nelinearan model je zato neophodan.
+2. **XGBoost je najbolji na kratkim horizontima,** a oni su najvažniji za aplikaciju (dolazak je obično za 10–30 min). Na 30 min greši 2,87 p.p., naspram 3,17 (HGB) i 3,35 (RF), što je 10–15% manje. Na dugim horizontima (12–15 h) Random Forest je neznatno bolji (4,19 naspram 4,36), a u sredini su praktično izjednačeni.
+3. **Izbor između modela sa stablima nije presudan; presudni su ulazi (lag feature-i) i to što je model nelinearan.** Ovo je pošten zaključak za rad: XGBoost je izabran zbog najmanje ukupne greške i najbolje kratkoročne prognoze, uz ugrađenu podršku za kategorije i nedostajuće vrednosti.
+4. **Brzina nije problem ni za jedan model:** predikcija traje 2–16 µs po redu, a za 15 parkinga ispod 1 ms. Ovo je argument i za odgovor „kako bi radilo u realnom vremenu”.
+5. **Otpornost (za korak 5):** u ~3% redova bez `y_lastweek` greška XGBoost-a je otprilike dvostruka (30 min: 5,83 naspram 2,77; 4 h: 9,52 naspram 4,93). To objašnjava loš 14.10.2017 iz koraka 2.
