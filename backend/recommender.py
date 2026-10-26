@@ -2,7 +2,12 @@
 Modul za preporuku parkinga (CLAUDE.md princip: predikcija i preporuka su
 odvojeni moduli; preporuka je ponderisano rangiranje, NE ML).
 
-    skor = w1 * predvidjena_dostupnost + w2 * blizina_polasku - w3 * saobracaj
+    skor = w1 * predvidjena_dostupnost + w2 * blizina_destinaciji - w3 * saobracaj
+
+`blizina_destinaciji` meri koliko vozac hoda od parkinga do cilja (ranije je
+merila udaljenost od polaska, sto je moglo da preporuci parking blizu polaska
+a daleko od cilja - promenjeno 2026-10-26, vidi PROGRESS.md). Udaljenost od
+polaska se i dalje koristi za procenu vremena dolaska (horizont predikcije).
 
 Predikcija se radi za procenjeno vreme DOLASKA do parkinga, po poglavlju 6
 MASTER_PLAN.md ("ako koristi zauzetost, treba da koristi predvidjenu
@@ -112,13 +117,13 @@ def recommend_parks(
     if not candidates:
         return []
 
-    max_drive_distance_km = max(c["distance_to_origin_km"] for c in candidates) or 1.0
+    max_walk_distance_km = max(c["distance_to_destination_km"] for c in candidates) or 1.0
     hour = now.hour
 
     results = []
     for c in candidates:
         predicted_availability = c["availability_score"]
-        closeness = 1 - (c["distance_to_origin_km"] / max_drive_distance_km)
+        closeness = 1 - (c["distance_to_destination_km"] / max_walk_distance_km)
         traffic = _traffic_density_score(c["distance_to_destination_km"], hour)
 
         score = (

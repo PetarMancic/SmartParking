@@ -105,3 +105,12 @@ MAE raste do horizonta ~540-600min (9-10h), pa opet pada ka 900-930min — artef
 ## Faza 5 — Skalabilnost (opciono)
 
 _Nije započeto — čeka potvrdu (samo ako korisnik to zatraži)._
+
+## Završetak praktičnog dela — plan u `../PLAN_ZAVRSETKA.md` (2026-10-26)
+
+### Korak 1 — Blizina destinaciji u skoru preporuke ✅
+
+- `backend/recommender.py`: `closeness` sada meri udaljenost parkinga od **destinacije** (hodanje), a ne od polaska, kako je bilo od prvog commita. Stara verzija je mogla da preporuči parking blizu polaska, a daleko od cilja, jer je destinacija uticala samo preko opcionog radius filtera. Udaljenost od polaska se i dalje koristi za ETA, tj. za horizont predikcije. Ponderi su nepromenjeni (0.55/0.3/0.15).
+- `frontend/app/page.tsx`: uklonjen razlog „Vrlo blizu početne tačke”, jer više ne odgovara skoru.
+- Provera: subota 14.10.2017 u 11h, polazak zapadno od grada, destinacija The Forum. Prva preporuka je Rose Lane (predviđeno 37%, 0,74 km hoda). The Forum je najbliži (0,12 km), ali je predviđeno 82%, pa je niže rangiran.
+- Uočeno za rad: P&R parkinzi dobijaju „hodanje” od ~4,8 km, a u stvarnosti se do centra ide autobusom. Ovo je ograničenje modela udaljenosti i ide u diskusiju.

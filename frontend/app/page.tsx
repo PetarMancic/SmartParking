@@ -92,10 +92,6 @@ function getRecommendationReasons(recommendation: Recommendation, radiusMeters: 
     reasons.push("Velika dostupnost");
   }
 
-  if (recommendation.distance_to_origin_km <= 0.7) {
-    reasons.push("Vrlo blizu početne tačke");
-  }
-
   const walkRadiusLimitKm = radiusMeters ? radiusMeters / 1000 : null;
   if (walkRadiusLimitKm && recommendation.distance_to_destination_km <= walkRadiusLimitKm) {
     reasons.push("U okviru radijusa hodanja");
