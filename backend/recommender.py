@@ -114,11 +114,24 @@ def recommend_parks(
             }
         )
 
+    return score_candidates(candidates, now.hour)[:top_n]
+
+
+def score_candidates(
+    candidates: list[dict],
+    hour: int,
+    weights: tuple[float, float, float] = (W1_PREDICTED_AVAILABILITY, W2_PROXIMITY, W3_TRAFFIC),
+) -> list[dict]:
+    """Ponderisano rangiranje kandidata - cista funkcija (bez modela i sata),
+    da bi je koristili i API (recommend_parks) i evaluacija
+    (ml/eval_recommender.py). Svaki kandidat mora imati `availability_score`
+    (0-1) i `distance_to_destination_km`. Vraca kandidate sortirane po skoru,
+    od najboljeg."""
     if not candidates:
         return []
 
+    w1, w2, w3 = weights
     max_walk_distance_km = max(c["distance_to_destination_km"] for c in candidates) or 1.0
-    hour = now.hour
 
     results = []
     for c in candidates:
@@ -126,11 +139,7 @@ def recommend_parks(
         closeness = 1 - (c["distance_to_destination_km"] / max_walk_distance_km)
         traffic = _traffic_density_score(c["distance_to_destination_km"], hour)
 
-        score = (
-            W1_PREDICTED_AVAILABILITY * predicted_availability
-            + W2_PROXIMITY * closeness
-            - W3_TRAFFIC * traffic
-        )
+        score = w1 * predicted_availability + w2 * closeness - w3 * traffic
 
         results.append(
             {
@@ -141,13 +150,13 @@ def recommend_parks(
                     "closeness": round(closeness, 4),
                     "traffic": round(traffic, 4),
                     "weights": {
-                        "w1_predicted_availability": W1_PREDICTED_AVAILABILITY,
-                        "w2_proximity": W2_PROXIMITY,
-                        "w3_traffic": W3_TRAFFIC,
+                        "w1_predicted_availability": w1,
+                        "w2_proximity": w2,
+                        "w3_traffic": w3,
                     },
                 },
             }
         )
 
     results.sort(key=lambda r: r["score"], reverse=True)
-    return results[:top_n]
+    return results

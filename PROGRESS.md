@@ -133,3 +133,33 @@ Testirano u browseru (backend :8000, frontend :3000): skok na datum, otkrivanje,
 - **Dani za demo:** subota 18.11.2017 (model bolji od tipične krive na sva 4 gradska parkinga; Castle Quarter 1: 1,18 naspram 6,59 p.p.) i utorak 17.10.2017 (Chantry Place 3,28 naspram 9,83).
 - **Ne koristiti 14.10.2017 za demo.** Prethodne subote (7.10.) nema podataka (rupa u CSV-u), pa je `y_lastweek` prazan za ceo dan i model je znatno lošiji od tipične krive (Chantry Place 9,18 naspram 1,48 p.p.). Ovo je dobar primer za diskusiju o **otpornosti na nedostajuće podatke**: model je u treningu retko video prazan `y_lastweek`.
 - **Model naspram baseline-ova na celom test periodu:** tipična kriva (prosek dana u nedelji i slota) ima MAE 6,92 p.p., a „isto vreme pre nedelju dana” 5,55 p.p. Model je bolji od tipične krive na svim horizontima (najviše 5,94). Od baseline-a „pre nedelju dana” je bolji do oko 4 h, a na dužim horizontima (5,07–5,94) je praktično izjednačen. Lag feature-i nose kratke horizonte, a dugi se svode na sezonski obrazac. Detaljno poređenje na istim redovima je deo koraka 5.
+
+### Korak 3 — Evaluacija preporuke (`ml/eval_recommender.py`) ✅
+
+**Postavka:** 2000 simuliranih vozača u test periodu (pon–sub, 08:00–19:30). Polazak je 3–8 km od centra Norwicha, destinacija u krugu od 1,2 km oko centra. Svaki vozač se gleda za 4 „vremena planiranja” (kreće odmah, za 1 h, 2 h, 4 h). Ishod se meri na **stvarnoj** zauzetosti u trenutku dolaska; „pun” je ≥95% (u CSV-u i ≥90%).
+
+**Strategije:** najbliži destinaciji (bez sistema), nasumično, naša formula sa naivnom prognozom („ostaje kao sada”), naša formula sa XGBoost-om (ono što API radi) i naša formula sa savršenom prognozom (oracle). Tri „pametne” strategije koriste **istu** funkciju bodovanja kao API. Zato je bodovanje izdvojeno u `recommender.score_candidates()`; refaktorisanje je provereno, API daje identičan rezultat.
+
+**Rezultati** (podrazumevani ponderi 0.55/0.3/0.15; `ml/output/eval_recommender_strategije.csv`):
+
+| Strategija | Pun pri dolasku, polazak odmah | Pun, planiranje 4 h | Hodanje |
+|---|---|---|---|
+| Najbliži destinaciji | 17,5% | 14,3% | 0,61 km |
+| Preporuka, naivna prognoza | 0,0% | 9,4% | ~0,96 km |
+| **Preporuka, XGBoost** | **0,0%** | **0,0%** | ~0,93 km |
+| Preporuka, savršena prognoza | 0,0% | 0,0% | ~1,0 km |
+
+Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 17,5%, naivna 2,1% → 10,4% (4 h), XGBoost 1,9% → 2,4%, oracle 1,9% → 2,6%; hodanje 0,61 naspram ~0,73 km.
+
+**Subota 11–16h** (najteži slučaj, `eval_recommender_subota_vrhunac.csv`): najbliži parking je pun u **85%** slučajeva. Preporuka spušta to na 0% (uz 14% upućivanja na P&R), a kad su dozvoljeni samo gradski parkinzi na 9%. Tih 9% ima i oracle: tada su puni svi gradski parkinzi i nema boljeg izbora.
+
+**Zaključci za rad:**
+1. **Preporuka radi:** rizik dolaska na pun parking pada sa 17,5% na 0–2%, uz ~120–340 m više hodanja.
+2. **Vrednost ML prognoze raste sa vremenom planiranja.** Za polazak odmah (horizont 30 min) naivna prognoza je jednako dobra kao model. Kad vozač planira 2–4 h unapred, naivna prognoza dovodi na pun parking u 3,5–10% slučajeva, a model ostaje na 0–2,5%.
+3. **Model je praktično na nivou savršene prognoze.** Kvalitet predikcije više nije usko grlo; preostali neuspesi su situacije kada su svi gradski parkinzi puni.
+4. **Oracle je ponekad malo lošiji od modela.** Formula tretira dostupnost linearno (96% i 100% zauzetosti se jedva razlikuju), iako je pun parking zapravo neuspeh. Ideja za poboljšanje ili diskusiju: nelinearna kazna kad je predviđena zauzetost blizu kapaciteta, uz korišćenje MAE kao nesigurnosti.
+5. **Osetljivost pondera** (`eval_recommender_osetljivost.csv/.png`, w3 = 0, w2 = 1 − w1). Za gradske parkinge, pri w1 ≥ 0,7 rizik pada ispod 1% uz ~780 m hodanja. Kad su u igri i P&R, pri w1 > 0,6 sistem šalje 20–90% vozača na P&R. Trenutni ponderi (0.55/0.3/0.15) su u dobroj tački: 0% punih, ~0,95 km hodanja, ~2% na P&R. Pri planiranju 2 h unapred kriva modela je skoro na krivoj oracle-a, a naivna ostaje na ~3% i pri w1 = 1.
+
+**Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i `ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
+
+**Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su samo 9 parkinga sa koordinatama; ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); w3 (saobraćaj) je heuristika. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
