@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import CompareChart, { CompareLegend, type CompareResponse } from "./CompareChart";
 import { displayOccupancy } from "./occupancy";
 import type { HistoryResponse, Park, ParkState, Recommendation, RouteParking } from "./ParkingMap";
 
@@ -28,6 +29,8 @@ type SimulationState = {
   tick_minutes: number;
   grid_start: string;
   grid_end: string;
+  test_start: string;
+  test_end: string; // ekskluzivno
 };
 
 type LatLng = { lat: number; lng: number };
@@ -154,6 +157,14 @@ export default function Home() {
   const [startPlace, setStartPlace] = useState<PlaceLabel | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<PlaceLabel | null>(null);
 
+  // Demo: skok na datum iz test perioda + poredjenje predikcije i stvarnosti.
+  const [jumpDate, setJumpDate] = useState("2017-11-18");
+  const [jumpTime, setJumpTime] = useState("10:00");
+  const [compareParkId, setCompareParkId] = useState<string | null>(null);
+  const [compareData, setCompareData] = useState<CompareResponse | null>(null);
+  const [reveal, setReveal] = useState(false);
+  const [showRolling, setShowRolling] = useState(false);
+
   // Parkovi + simulirano stanje - ucitaj jednom i onda pollaj (poglavlje 7).
   useEffect(() => {
     fetch(`${API_URL}/parks`)
@@ -225,7 +236,37 @@ export default function Home() {
       .catch(() => undefined);
   };
 
+  const handleJump = () => {
+    setError(null);
+    setReveal(false);
+    fetch(`${API_URL}/simulation/reset?start_time=${jumpDate}T${jumpTime}:00`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error((await res.json()).detail);
+        return res.json();
+      })
+      .then(setSimState)
+      .catch((e) => setError(`Ne mogu da postavim vreme: ${e.message}`));
+  };
+
+  // Parking za poredjenje: izabran klikom na marker, inace prvi sa koordinatama.
+  const effectiveCompareParkId = compareParkId ?? parks.find((p) => p.lat !== null)?.park_id ?? null;
+  const simTimeStr = simState?.current_time ? simState.current_time.slice(11, 16) : null;
+
+  useEffect(() => {
+    if (!effectiveCompareParkId || !simDateStr || !simTimeStr) return;
+    let cancelled = false;
+    const params = new URLSearchParams({ park_id: effectiveCompareParkId, date: simDateStr, from_time: simTimeStr });
+    fetch(`${API_URL}/compare?${params}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => !cancelled && setCompareData(data))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveCompareParkId, simDateStr, simTimeStr]);
+
   const handlePopupOpen = (parkId: string) => {
+    setCompareParkId(parkId);
     fetch(`${API_URL}/history?park_id=${encodeURIComponent(parkId)}`)
       .then((res) => res.json())
       .then((data: HistoryResponse) => setHistoryByPark((prev) => ({ ...prev, [parkId]: data })))
@@ -479,6 +520,26 @@ export default function Home() {
                         />
                       </div>
                     </div>
+                    <div className="d-flex align-items-end gap-2 flex-wrap mt-2">
+                      <div>
+                        <label className="form-label small fw-semibold mb-1">Skok na datum (test period)</label>
+                        <input
+                          type="date"
+                          className="form-control form-control-sm"
+                          value={jumpDate}
+                          min={simState?.test_start.slice(0, 10)}
+                          max={simState ? new Date(new Date(simState.test_end).getTime() - 86400000).toISOString().slice(0, 10) : undefined}
+                          onChange={(e) => setJumpDate(e.target.value)}
+                        />
+                      </div>
+                      <select className="form-select form-select-sm" style={{ width: 90 }} value={jumpTime} onChange={(e) => setJumpTime(e.target.value)}>
+                        {TIME_OF_DAY_OPTIONS.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                      <button type="button" onClick={handleJump} className="btn btn-sm btn-primary">Postavi vreme</button>
+                      <span className="form-text m-0">Model nije video ove podatke pri treningu.</span>
+                    </div>
                   </div>
                 </div>
 
@@ -550,6 +611,45 @@ export default function Home() {
                   {error && (
                     <div className="alert alert-warning mb-0" role="alert">
                       {error}
+                    </div>
+                  )}
+
+                  {compareData && (
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between align-items-start mb-1 gap-2">
+                          <div>
+                            <h2 className="h6 mb-0">Predikcija vs stvarnost</h2>
+                            <div className="small text-muted">
+                              {compareData.name ?? compareData.park_id} · {formatSimTime(compareData.from_time)}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${reveal ? "btn-outline-secondary" : "btn-outline-primary"}`}
+                            onClick={() => setReveal((r) => !r)}
+                          >
+                            {reveal ? "Sakrij stvarnost" : "Otkrij stvarnost"}
+                          </button>
+                        </div>
+                        <CompareChart data={compareData} reveal={reveal} showRolling={showRolling} />
+                        <CompareLegend showRolling={showRolling} />
+                        <div className="form-check form-check-inline small mt-1">
+                          <input id="rolling" type="checkbox" className="form-check-input" checked={showRolling} onChange={(e) => setShowRolling(e.target.checked)} />
+                          <label htmlFor="rolling" className="form-check-label">Prognoza „sat unapred” kroz ceo dan</label>
+                        </div>
+                        {!compareData.has_reading_at_from_time && (
+                          <div className="small text-warning-emphasis">Nema očitavanja u ovom trenutku - prognoza nije moguća.</div>
+                        )}
+                        {reveal && (
+                          <div className="small mt-1">
+                            Greška za ovaj dan (MAE, p.p.): prognoza iz „sada” <b>{compareData.mae.forecast ?? "-"}</b> · tipična kriva{" "}
+                            <b>{compareData.mae.typical_same_slots ?? "-"}</b>
+                            {showRolling && <> · sat unapred <b>{compareData.mae.rolling_1h ?? "-"}</b></>}
+                          </div>
+                        )}
+                        <div className="small text-muted mt-1">Klikni na parking na mapi da ga izabereš.</div>
+                      </div>
                     </div>
                   )}
 

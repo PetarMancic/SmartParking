@@ -114,3 +114,22 @@ _Nije započeto — čeka potvrdu (samo ako korisnik to zatraži)._
 - `frontend/app/page.tsx`: uklonjen razlog „Vrlo blizu početne tačke”, jer više ne odgovara skoru.
 - Provera: subota 14.10.2017 u 11h, polazak zapadno od grada, destinacija The Forum. Prva preporuka je Rose Lane (predviđeno 37%, 0,74 km hoda). The Forum je najbliži (0,12 km), ali je predviđeno 82%, pa je niže rangiran.
 - Uočeno za rad: P&R parkinzi dobijaju „hodanje” od ~4,8 km, a u stvarnosti se do centra ide autobusom. Ovo je ograničenje modela udaljenosti i ide u diskusiju.
+
+### Korak 2 — Demo režim: izbor datuma i „predikcija vs stvarnost” ✅
+
+Backend (`backend/main.py`, `backend/predictor.py`):
+- `POST /simulation/reset?start_time=`: skok na trenutak u test periodu (zaokružen na 30 min, sat ostaje pauziran). Van test perioda vraća 400.
+- `/simulation/state` sada vraća i `test_start` i `test_end`, da bi UI ograničio izbor datuma.
+- `GET /compare?park_id=&date=&from_time=`: retrospektivno poređenje za jedan dan iz test perioda. Vraća stvarnu krivu, prognozu napravljenu u `from_time` za ostatak dana, liniju „sat unapred” (za svaki slot predikcija napravljena sat ranije), tipičnu krivu za taj dan u nedelji iz treninga i MAE za svaku od njih. Endpoint namerno vidi ceo dan i zato je odvojen od živog `/state`. Same predikcije i dalje vide samo podatke do svog trenutka.
+- `predictor.predict_rates()`: batch predikcija, ceo dan jednim pozivom modela.
+
+Frontend:
+- `CompareChart.tsx` (nov): SVG grafik sa osama, iste boje kao `Sparkline`; linije se prekidaju na rupama u podacima.
+- `page.tsx`: izbor datuma i vremena („Postavi vreme”) i panel „Predikcija vs stvarnost”. Klik na marker bira parking. Stvarni podaci posle „sada” su skriveni dok se ne klikne „Otkrij stvarnost”, kada se prikazuje i MAE za dan. Linija „sat unapred” je opciona.
+
+Testirano u browseru (backend :8000, frontend :3000): skok na datum, otkrivanje, linija sat unapred, izbor parkinga klikom na marker. Bez grešaka u konzoli. Lint: i dalje samo 4 stare `set-state-in-effect` greške.
+
+**Nalazi bitni za rad i odbranu:**
+- **Dani za demo:** subota 18.11.2017 (model bolji od tipične krive na sva 4 gradska parkinga; Castle Quarter 1: 1,18 naspram 6,59 p.p.) i utorak 17.10.2017 (Chantry Place 3,28 naspram 9,83).
+- **Ne koristiti 14.10.2017 za demo.** Prethodne subote (7.10.) nema podataka (rupa u CSV-u), pa je `y_lastweek` prazan za ceo dan i model je znatno lošiji od tipične krive (Chantry Place 9,18 naspram 1,48 p.p.). Ovo je dobar primer za diskusiju o **otpornosti na nedostajuće podatke**: model je u treningu retko video prazan `y_lastweek`.
+- **Model naspram baseline-ova na celom test periodu:** tipična kriva (prosek dana u nedelji i slota) ima MAE 6,92 p.p., a „isto vreme pre nedelju dana” 5,55 p.p. Model je bolji od tipične krive na svim horizontima (najviše 5,94). Od baseline-a „pre nedelju dana” je bolji do oko 4 h, a na dužim horizontima (5,07–5,94) je praktično izjednačen. Lag feature-i nose kratke horizonte, a dugi se svode na sezonski obrazac. Detaljno poređenje na istim redovima je deo koraka 5.

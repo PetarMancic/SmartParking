@@ -6,10 +6,12 @@ Endpointi:
 - GET  /simulation/state   - simulirano vreme, da li sat radi, brzina
 - POST /simulation/start   - pokrece sat (opciono: start_time, speed)
 - POST /simulation/pause   - pauzira sat
+- POST /simulation/reset   - skok na izabrani trenutak test perioda (sat ostaje pauziran)
 - POST /simulation/speed   - menja brzinu (factor = sim-minuta po stvarnoj sekundi)
 - GET  /state              - trenutna zauzetost + (opciono) zauzetost za bilo koji target_time
 - GET  /history            - tipicna kriva za dan u nedelji (iz treninga) + stvarni tok danas
 - GET  /recommend          - rangirana lista parkinga za destinaciju
+- GET  /compare            - retrospektivno poredjenje predikcije i stvarnosti za jedan dan
 
 Simulator (backend/simulator.py) reprodukuje Norfolk CSV hronoloskim redom
 (backend/datasource.py - ReplaySource): model u trenutku t vidi samo podatke
@@ -43,6 +45,8 @@ app.add_middleware(
 CITY = "norfolk"
 # Pocetak test perioda (podaci koje model nije video pri treningu) - poglavlje 7.
 DEFAULT_START_TIME = pd.Timestamp("2017-10-01 08:00:00")
+TEST_START = CITY_CONFIGS[CITY]["test_start"]
+TEST_END = CITY_CONFIGS[CITY]["test_end"]  # ekskluzivno
 
 _data_source = ReplaySource(city=CITY)
 _clock = SimulationClock(_data_source, start_time=DEFAULT_START_TIME)
@@ -66,9 +70,19 @@ def get_parks():
     return parks_module.load_parks(CITY)
 
 
+def _simulation_state() -> dict:
+    # Granice test perioda idu uz stanje sata - frontend po njima ogranicava
+    # izbor datuma (demo samo nad podacima koje model nije video pri treningu).
+    return {
+        **_clock.state(),
+        "test_start": TEST_START.isoformat(),
+        "test_end": TEST_END.isoformat(),
+    }
+
+
 @app.get("/simulation/state")
 def simulation_state():
-    return _clock.state()
+    return _simulation_state()
 
 
 @app.post("/simulation/start")
@@ -86,13 +100,13 @@ async def simulation_start(start_time: str | None = None, speed: float | None = 
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
     _clock.start()
-    return _clock.state()
+    return _simulation_state()
 
 
 @app.post("/simulation/pause")
 async def simulation_pause():
     _clock.pause()
-    return _clock.state()
+    return _simulation_state()
 
 
 @app.post("/simulation/speed")
@@ -101,7 +115,21 @@ async def simulation_speed(factor: float):
         _clock.set_speed(factor)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return _clock.state()
+    return _simulation_state()
+
+
+@app.post("/simulation/reset")
+async def simulation_reset(start_time: str):
+    # Skok na izabrani trenutak (demo: "pokazi mi subotu 14.10. u 10h").
+    # Zaokruzuje se na 30-min mrezu i dozvoljava samo test period.
+    try:
+        parsed = pd.Timestamp(start_time).floor("30min")
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=f"Neispravno start_time: {exc}")
+    if not (TEST_START <= parsed < TEST_END):
+        raise HTTPException(status_code=400, detail="start_time mora biti u test periodu.")
+    _clock.reset(parsed)
+    return _simulation_state()
 
 
 def _park_state(park_id: str, capacity: float, now: pd.Timestamp, target_time: pd.Timestamp | None) -> dict:
@@ -247,3 +275,90 @@ def recommend(
         radius_meters=radius,
         departure_time=parsed_departure,
     )
+
+
+def _rate_pct(value) -> float | None:
+    return None if value is None or pd.isna(value) else round(float(value) * 100, 2)
+
+
+def _mae_pp(pairs: list[tuple[float | None, float | None]]) -> float | None:
+    """MAE u procentnim poenima nad parovima (predikcija, stvarno) gde postoje oba."""
+    errors = [abs(p - a) for p, a in pairs if p is not None and a is not None]
+    return round(sum(errors) / len(errors), 2) if errors else None
+
+
+ROLLING_HORIZON_STEPS = 2  # "uvek sat unapred" linija
+
+
+@app.get("/compare")
+def compare(park_id: str, date: str, from_time: str = "10:00"):
+    """Retrospektivno poredjenje za odbranu/demo: sta je model predvideo, a sta
+    se stvarno desilo tog dana. Namerno vidi ceo dan (i "buducnost" u odnosu
+    na from_time) - zato je odvojeno od zivog simulatora (/state), koji
+    buducnost nikad ne vidi. Same predikcije i dalje koriste samo podatke do
+    svog trenutka predvidjanja (predictor.predict_rates).
+
+    - forecast: predikcija napravljena u `from_time` za svaki kasniji slot dana
+    - rolling_1h: za svaki slot, predikcija napravljena sat ranije
+    - typical: prosek za taj dan u nedelji iz trening perioda (bez modela)
+    """
+    park = parks_module.get_park(park_id, CITY)
+    if park is None:
+        raise HTTPException(status_code=404, detail=f"Nepoznat park_id: {park_id}")
+    try:
+        day_start = pd.Timestamp(date).normalize()
+        from_ts = (day_start + pd.Timedelta(from_time + ":00")).floor("30min")
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=f"Neispravan datum/vreme: {exc}")
+    if not (TEST_START <= day_start < TEST_END):
+        raise HTTPException(status_code=400, detail="Datum mora biti u test periodu (podaci koje model nije video).")
+
+    slots = pd.date_range(day_start, periods=48, freq="30min")
+    history = _data_source.history_until(park_id, slots[-1])
+    actual = [_rate_pct(history.get(t)) for t in slots]
+
+    later_slots = [t for t in slots if t > from_ts]
+    forecast_steps = [round((t - from_ts) / pd.Timedelta(minutes=30)) for t in later_slots]
+    forecast_raw = predictor.predict_rates(
+        history, [(from_ts, k) for k in forecast_steps], park_id, park["capacity"], _carpark_categories
+    )
+    forecast_by_time = {t: _rate_pct(v) for t, v in zip(later_slots, forecast_raw)}
+
+    rolling_raw = predictor.predict_rates(
+        history,
+        [(t - pd.Timedelta(minutes=30 * ROLLING_HORIZON_STEPS), ROLLING_HORIZON_STEPS) for t in slots],
+        park_id,
+        park["capacity"],
+        _carpark_categories,
+    )
+    rolling = [_rate_pct(v) for v in rolling_raw]
+
+    typical = [p["avg_occupancy_rate"] for p in _typical_curve(park_id, day_start.dayofweek)]
+    typical = (typical + [None] * 48)[:48]
+
+    points = [
+        {
+            "time": t.isoformat(),
+            "actual": actual[i],
+            "forecast": forecast_by_time.get(t),
+            "rolling_1h": rolling[i],
+            "typical": typical[i],
+        }
+        for i, t in enumerate(slots)
+    ]
+    after = [p for p in points if pd.Timestamp(p["time"]) > from_ts]
+
+    return {
+        "park_id": park_id,
+        "name": park["name"],
+        "date": day_start.date().isoformat(),
+        "day_of_week": day_start.strftime("%a"),
+        "from_time": from_ts.isoformat(),
+        "has_reading_at_from_time": not pd.isna(history.get(from_ts)),
+        "points": points,
+        "mae": {
+            "forecast": _mae_pp([(p["forecast"], p["actual"]) for p in after]),
+            "typical_same_slots": _mae_pp([(p["typical"], p["actual"]) for p in after if p["forecast"] is not None]),
+            "rolling_1h": _mae_pp([(p["rolling_1h"], p["actual"]) for p in points]),
+        },
+    }

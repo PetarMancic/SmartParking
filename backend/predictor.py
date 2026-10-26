@@ -97,3 +97,34 @@ def predict_rate(
     categories = carpark_categories or _CARPARK_CATEGORIES
     row = build_feature_row(history, now, horizon_steps, park_id, capacity, categories)
     return float(np.clip(_model.predict(row)[0], 0, 1))
+
+
+def predict_rates(
+    history: pd.Series,
+    requests: list[tuple[pd.Timestamp, int]],
+    park_id: str,
+    capacity: float,
+    carpark_categories: list[str] | None = None,
+) -> list[float | None]:
+    """Vise predikcija odjednom (jedan poziv modela) - za retrospektivno
+    poredjenje predikcije i stvarnosti (/compare). Svaki zahtev je par
+    (now, horizon_steps); za svaki se koristi samo istorija do svog `now`, isto
+    kao u predict_rate. Vraca None tamo gde nema ocitavanja u `now`."""
+    categories = carpark_categories or _CARPARK_CATEGORIES
+    rows = []
+    valid_positions = []
+    for i, (now, horizon_steps) in enumerate(requests):
+        if not (_MIN_HORIZON_STEPS <= horizon_steps <= _MAX_HORIZON_STEPS):
+            continue
+        known = history[history.index <= now]
+        if pd.isna(_lookup(known, now)):
+            continue
+        rows.append(build_feature_row(known, now, horizon_steps, park_id, capacity, categories))
+        valid_positions.append(i)
+
+    results: list[float | None] = [None] * len(requests)
+    if rows:
+        predictions = np.clip(_model.predict(pd.concat(rows, ignore_index=True)), 0, 1)
+        for position, value in zip(valid_positions, predictions):
+            results[position] = float(value)
+    return results
