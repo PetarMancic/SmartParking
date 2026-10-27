@@ -85,7 +85,7 @@ function distanceToRouteKm(lat: number, lng: number, geometry: [number, number][
 function formatSimTime(iso: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
-  return d.toLocaleString("sr-RS", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("sr-Latn-RS", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function getRecommendationReasons(recommendation: Recommendation, radiusMeters: number | null) {
@@ -105,10 +105,15 @@ function getRecommendationReasons(recommendation: Recommendation, radiusMeters: 
   return reasons;
 }
 
-function getBarPercent(value: number, maxValue: number, inverse = false) {
-  const normalized = Math.max(0, Math.min(1, value / maxValue));
-  const percent = inverse ? 100 - normalized * 100 : normalized * 100;
-  return Math.round(Math.max(0, Math.min(100, percent)));
+// Delovi skora tacno kako ih racuna backend (recommender.score_candidates):
+// skor = w1*dostupnost + w2*blizina - w3*saobracaj, svaka vrednost u 0-1.
+function getScoreParts(recommendation: Recommendation) {
+  const { predicted_availability, closeness, traffic, weights } = recommendation.score_components;
+  return [
+    { label: "Dostupnost", value: predicted_availability, weight: weights.w1_predicted_availability, sign: "+", barClass: "bg-success" },
+    { label: "Blizina cilju", value: closeness, weight: weights.w2_proximity, sign: "+", barClass: "bg-info" },
+    { label: "Saobraćaj", value: traffic, weight: weights.w3_traffic, sign: "−", barClass: "bg-secondary" },
+  ];
 }
 
 async function fetchPlaceLabel(location: LatLng): Promise<PlaceLabel> {
@@ -247,6 +252,10 @@ export default function Home() {
       .then(setSimState)
       .catch((e) => setError(`Ne mogu da postavim vreme: ${e.message}`));
   };
+
+  // Ime parkinga za prikaz u listama (sifra ako ime nije poznato).
+  const parkNames = useMemo(() => new Map(parks.map((p) => [p.park_id, p.name ?? p.park_id])), [parks]);
+  const parkName = (parkId: string) => parkNames.get(parkId) ?? parkId;
 
   // Parking za poredjenje: izabran klikom na marker, inace prvi sa koordinatama.
   const effectiveCompareParkId = compareParkId ?? parks.find((p) => p.lat !== null)?.park_id ?? null;
@@ -662,7 +671,7 @@ export default function Home() {
                         </div>
                         {routeParkings.map((p) => (
                           <div key={p.park_id} className="small d-flex justify-content-between border-bottom py-1">
-                            <span>{p.park_id} ({p.distanceToRouteKm} km od rute)</span>
+                            <span>{parkName(p.park_id)} ({p.distanceToRouteKm} km od rute)</span>
                             <span className="fw-semibold">{p.occupancyRate !== null ? `${p.occupancyRate.toFixed(0)}%` : "-"}</span>
                           </div>
                         ))}
@@ -702,19 +711,17 @@ export default function Home() {
                         <div className="overflow-auto mt-2 flex-grow-1">
                           {recommendations.map((r, i) => {
                             const reasons = getRecommendationReasons(r, radiusMeters ? Number(radiusMeters) : null);
-                            const availabilityPercent = getBarPercent(r.availability_score, 1);
-                            const drivePercent = getBarPercent(r.distance_to_origin_km, 2, true);
-                            const walkPercent = getBarPercent(r.distance_to_destination_km, 1, true);
 
                             return (
                               <div key={r.park_id} className="border rounded-3 p-2 mt-2 bg-white shadow-sm">
                                 <div className="d-flex justify-content-between align-items-start gap-2">
-                                  <div className="fw-semibold small">{i + 1}. {r.park_id}</div>
+                                  <div className="fw-semibold small">{i + 1}. {parkName(r.park_id)}</div>
                                   <span className="badge bg-success-subtle text-success-emphasis">{r.score.toFixed(2)}</span>
                                 </div>
                                 <div className="small text-muted mt-1">
                                   Predikcija za dolazak (~{Math.round(r.eta_minutes)} min, horizont {r.horizon_minutes} min): {r.predicted_occupancy_rate}%
                                 </div>
+                                <div className="small text-muted">Hodanje do cilja: {r.distance_to_destination_km.toFixed(2)} km</div>
 
                                 {reasons.length > 0 && (
                                   <div className="d-flex flex-wrap gap-1 mt-2">
@@ -727,29 +734,19 @@ export default function Home() {
                                 )}
 
                                 <div className="mt-2">
-                                  <div className="small text-muted mb-1">Raspodela skora</div>
+                                  <div className="small text-muted mb-1">Delovi skora (vrednost × ponder)</div>
                                   <div className="d-flex flex-column gap-1">
-                                    <div className="d-flex align-items-center gap-2">
-                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Dostupnost</span>
-                                      <div className="progress flex-grow-1" style={{ height: "6px" }}>
-                                        <div className="progress-bar bg-success" style={{ width: `${availabilityPercent}%` }} />
+                                    {getScoreParts(r).map((part) => (
+                                      <div key={part.label} className="d-flex align-items-center gap-2">
+                                        <span className="small fw-semibold" style={{ minWidth: 90 }}>{part.label}</span>
+                                        <div className="progress flex-grow-1" style={{ height: "6px" }}>
+                                          <div className={`progress-bar ${part.barClass}`} style={{ width: `${Math.round(part.value * 100)}%` }} />
+                                        </div>
+                                        <span className="small text-muted" style={{ minWidth: 92, textAlign: "right" }}>
+                                          {part.sign} {Math.round(part.value * 100)}% × {part.weight}
+                                        </span>
                                       </div>
-                                      <span className="small text-muted">{availabilityPercent}%</span>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-2">
-                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Vožnja</span>
-                                      <div className="progress flex-grow-1" style={{ height: "6px" }}>
-                                        <div className="progress-bar bg-info" style={{ width: `${drivePercent}%` }} />
-                                      </div>
-                                      <span className="small text-muted">{drivePercent}%</span>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-2">
-                                      <span className="small fw-semibold" style={{ minWidth: 90 }}>Hodanje</span>
-                                      <div className="progress flex-grow-1" style={{ height: "6px" }}>
-                                        <div className="progress-bar bg-warning" style={{ width: `${walkPercent}%` }} />
-                                      </div>
-                                      <span className="small text-muted">{walkPercent}%</span>
-                                    </div>
+                                    ))}
                                   </div>
                                 </div>
                               </div>

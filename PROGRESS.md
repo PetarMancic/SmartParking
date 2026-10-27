@@ -331,3 +331,8 @@ Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min)
   - obrazloženje za 6 parkinga bez koordinata;
   - nova ograničenja (saobraćaj čeka mentora, evaluacija simulacijom, test bez praznika).
 - Reprodukovanost: model je u repou, pa za pokretanje aplikacije nije potreban trening. Komande iz README-a (`npm run backend`, `npm run frontend`, `python ml/...`) su proverene.
+- Sitne popravke frontenda, uočene pri demo prolazu (scenario iz `../ZA_MENTORA.md`):
+  1. legenda mape se sklanja dok je otvoren popup parkinga, jer ga je prekrivala;
+  2. „Raspodela skora” je zamenjena „Delovima skora”: sada prikazuje stvarne komponente iz backenda (`score_components`, dostupnost / blizina cilju / saobraćaj, uz pondere). Stare trake „Vožnja” i „Hodanje” su se računale u frontendu sa proizvoljnim granicama (2 km / 1 km), skoro uvek su bile 0%, a „vožnja” uopšte ne ulazi u skor;
+  3. liste preporuka i parkinga uz rutu prikazuju ime parkinga umesto šifre, a dodato je i „Hodanje do cilja”;
+  4. dan u nedelji se ispisuje latinicom (`sr-Latn-RS` umesto `sr-RS`).

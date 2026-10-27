@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
@@ -49,6 +49,14 @@ export type Recommendation = {
   distance_to_origin_km: number;
   distance_to_destination_km: number;
   score: number;
+  // Delovi skora iz backend/recommender.py (score_candidates):
+  // skor = w1*predicted_availability + w2*closeness - w3*traffic
+  score_components: {
+    predicted_availability: number;
+    closeness: number;
+    traffic: number;
+    weights: { w1_predicted_availability: number; w2_proximity: number; w3_traffic: number };
+  };
 };
 
 export type RouteParking = {
@@ -220,6 +228,9 @@ export default function ParkingMap({
   radiusCenter: { lat: number; lng: number } | null;
   onMapClick: (lat: number, lng: number) => void;
 }) {
+  // Legenda je preko mape (gornji desni ugao) i prekrivala bi popup parkinga -
+  // dok je popup otvoren, legenda se sklanja.
+  const [popupOpen, setPopupOpen] = useState(false);
   const recommendedRank = new Map(recommendations.map((r, i) => [r.park_id, i + 1]));
   const routeParkingIds = new Set(routeParkings.map((p) => p.park_id));
   const mappableParks = parks.filter((p) => p.lat !== null && p.lng !== null);
@@ -257,7 +268,13 @@ export default function ParkingMap({
               key={park.park_id}
               position={[park.lat as number, park.lng as number]}
               icon={createParkIcon(rate, rank)}
-              eventHandlers={{ popupopen: () => onPopupOpen(park.park_id) }}
+              eventHandlers={{
+                popupopen: () => {
+                  setPopupOpen(true);
+                  onPopupOpen(park.park_id);
+                },
+                popupclose: () => setPopupOpen(false),
+              }}
             >
               <Tooltip direction="top" offset={[0, -12]} className="park-label">
                 {park.name || park.park_id}
@@ -285,6 +302,7 @@ export default function ParkingMap({
 
       <div
         style={{
+          display: popupOpen ? "none" : undefined,
           position: "absolute",
           top: 12,
           right: 12,
