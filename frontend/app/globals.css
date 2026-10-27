@@ -1,15 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f5f7fb;
-  --foreground: #14213d;
+/* Design tokeni (UI_REDESIGN_PLAN.md, 7.5). Status boje su iste kao boje
+   markera na mapi i u radu: zeleno < 50 %, zuto 50-80 %, crveno >= 80 %. */
+@theme {
+  --color-bg: #f3f5f9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f9fc;
+  --color-border: #e3e8ef;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-ink-subtle: #64748b;
+
+  --color-primary: #2a78d6;
+  --color-primary-ink: #1d5aa6;
+  --color-primary-soft: #e8f1fc;
+  --color-accent: #4a3aa7;
+  --color-accent-soft: #efedfa;
+
+  --color-free: #0ca30c;
+  --color-free-ink: #0a6e0a;
+  --color-free-soft: #e6f6e6;
+  --color-busy: #fab219;
+  --color-busy-ink: #8a5a00;
+  --color-busy-soft: #fff4d6;
+  --color-full: #d03b3b;
+  --color-full-ink: #a52a2a;
+  --color-full-soft: #fbe9e9;
+  --color-unknown: #898781;
+  --color-unknown-soft: #f1f1ef;
+
+  --color-forecast: #eb6834;
+  --color-rolling: #7c5cc4;
+  --color-typical: #898781;
+
+  --radius-card: 0.875rem;
+  --radius-control: 0.5rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
 html,
@@ -18,38 +48,115 @@ body {
 }
 
 body {
-  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 45%, #ffeef8 100%);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
 }
 
-.progress {
-  background-color: #e9eef8;
-}
-
-.progress-bar {
-  transition: width 0.2s ease-in-out;
-}
-
-.placeholder {
-  display: inline-block;
-  min-height: 0.8rem;
-  border-radius: 999px;
-  background-color: #e7edf7;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
-}
-
-.card {
-  background: rgba(255, 255, 255, 0.95);
-}
+/* ---------- Leaflet: samo izgled ---------- */
 
 .leaflet-container {
   height: 100%;
   width: 100%;
-  border-radius: 1rem;
+  font-family: var(--font-sans);
+}
+
+.leaflet-container .leaflet-popup-content-wrapper {
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  border: 1px solid var(--color-border);
+}
+
+.leaflet-container .leaflet-popup-content {
+  margin: 14px 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+.leaflet-container .leaflet-tooltip {
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-ink);
+  padding: 3px 8px;
+}
+
+.leaflet-container .leaflet-control-zoom a {
+  color: var(--color-ink);
+}
+
+/* Marker parkinga: pilula sa procentom zauzetosti - status se cita i bez boje. */
+.sp-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+  font: 700 10.5px/1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  transition: transform 0.15s ease;
+}
+
+.leaflet-marker-icon:hover .sp-marker,
+.leaflet-marker-icon:focus-visible .sp-marker {
+  transform: scale(1.12);
+}
+
+.sp-marker--busy {
+  color: #3d2800;
+}
+
+.sp-marker--recommended {
+  border: 3px solid var(--color-accent);
+  box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(74, 58, 167, 0.45);
+}
+
+.sp-marker__rank {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-pin {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.25), 0 3px 8px rgba(15, 23, 42, 0.35);
+}
+
+@keyframes sp-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(12, 163, 12, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(12, 163, 12, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(12, 163, 12, 0); }
+}
+
+.sp-live-dot {
+  animation: sp-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-live-dot,
+  .sp-marker {
+    animation: none;
+    transition: none;
+  }
 }

@@ -336,3 +336,13 @@ Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min)
   2. „Raspodela skora” je zamenjena „Delovima skora”: sada prikazuje stvarne komponente iz backenda (`score_components`, dostupnost / blizina cilju / saobraćaj, uz pondere). Stare trake „Vožnja” i „Hodanje” su se računale u frontendu sa proizvoljnim granicama (2 km / 1 km), skoro uvek su bile 0%, a „vožnja” uopšte ne ulazi u skor;
   3. liste preporuka i parkinga uz rutu prikazuju ime parkinga umesto šifre, a dodato je i „Hodanje do cilja”;
   4. dan u nedelji se ispisuje latinicom (`sr-Latn-RS` umesto `sr-RS`).
+
+### UI redesign frontenda (grana `ui-redesign`, 2026-10-27)
+
+Promenjen je samo prezentacioni sloj. Pozivi ka backendu, parametri, polling (3 s), logika preporuke i rute ostali su isti.
+- Bootstrap je zamenjen Tailwind-om v4 (design tokeni u `globals.css`), a ikonice su iz `lucide-react`.
+- Status zauzetosti se prikazuje bojom, ikonom i tekstom; pragovi su isti (< 50 / 50–80 / ≥ 80 %).
+- Marker parkinga na mapi je pilula sa procentom.
+- Preporuka #1 je istaknuta i ima blok „Zašto?“ sa delovima skora i formulom skora.
+- Dodata su stanja učitavanja i prazna stanja; responsive prikaz je proveren na 390 px.
+- Detalji, inventar funkcionalnosti i checklista za ručnu proveru su u `frontend/UI_REDESIGN_PLAN.md`.

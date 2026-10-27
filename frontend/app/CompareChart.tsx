@@ -4,6 +4,8 @@
 // Cist SVG kao i Sparkline.tsx - bez chart biblioteke. Iste boje kao Sparkline:
 // plavo = stvarno, narandzasto = prognoza, sivo isprekidano = tipicno.
 
+import { LegendLine } from "./Sparkline";
+
 export type ComparePoint = {
   time: string;
   actual: number | null;
@@ -131,15 +133,15 @@ export default function CompareChart({
 
 export function CompareLegend({ showRolling }: { showRolling: boolean }) {
   const items = [
-    { label: "stvarno", color: COLORS.actual },
-    { label: "prognoza iz „sada”", color: COLORS.forecast },
-    ...(showRolling ? [{ label: "prognoza sat ranije", color: COLORS.rolling }] : []),
-    { label: "tipično (prosek dana)", color: COLORS.typical },
+    { label: "stvarno", color: COLORS.actual, dash: undefined },
+    { label: "prognoza iz „sada”", color: COLORS.forecast, dash: "5,3" },
+    ...(showRolling ? [{ label: "prognoza sat ranije", color: COLORS.rolling, dash: undefined }] : []),
+    { label: "tipično (prosek dana)", color: COLORS.typical, dash: "3,2" },
   ];
   return (
-    <div className="d-flex flex-wrap gap-2" style={{ fontSize: 11 }}>
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-muted">
       {items.map((item) => (
-        <span key={item.label} style={{ color: item.color }}>▬ {item.label}</span>
+        <LegendLine key={item.label} color={item.color} dash={item.dash} label={item.label} />
       ))}
     </div>
   );

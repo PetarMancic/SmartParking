@@ -59,7 +59,7 @@ export default function Sparkline({
   return (
     <div>
       <svg width={WIDTH} height={HEIGHT} role="img" aria-label="Istorija i prognoza zauzetosti">
-        <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="#fcfcfb" />
+        <rect x={0} y={0} width={WIDTH} height={HEIGHT} rx={6} fill="#f7f9fc" />
         {typicalPoints && (
           <polyline points={typicalPoints} fill="none" stroke="#898781" strokeWidth={1.5} strokeDasharray="3,2" />
         )}
@@ -85,11 +85,23 @@ export default function Sparkline({
           strokeWidth={1}
         />
       </svg>
-      <div className="d-flex gap-2 small" style={{ fontSize: 10, color: "#52514e" }}>
-        <span style={{ color: "#898781" }}>▬▬ tipično (dow prosek)</span>
-        <span style={{ color: "#2a78d6" }}>▬▬ stvarno</span>
-        <span style={{ color: "#eb6834" }}>▬▬ prognoza</span>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-ink-muted">
+        <LegendLine color="#898781" dash="3,2" label="tipično (dow prosek)" />
+        <LegendLine color="#2a78d6" label="stvarno" />
+        <LegendLine color="#eb6834" dash="1,3" label="prognoza" />
       </div>
     </div>
+  );
+}
+
+// Uzorak linije u legendi - ista boja i isti dash kao na grafiku.
+export function LegendLine({ color, dash, label }: { color: string; dash?: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <svg width={16} height={6} aria-hidden>
+        <line x1={0} y1={3} x2={16} y2={3} stroke={color} strokeWidth={2.5} strokeDasharray={dash} strokeLinecap="round" />
+      </svg>
+      {label}
+    </span>
   );
 }

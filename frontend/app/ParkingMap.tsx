@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { TriangleAlert } from "lucide-react";
 import Sparkline, { ActualPoint, ForecastPoint, TypicalPoint } from "./Sparkline";
 import { displayOccupancy } from "./occupancy";
+import { occupancyStatus, STATUS_META, type OccupancyStatus } from "./_components/status";
+import { Skeleton, STATUS_ICON, StatusBadge } from "./_components/ui";
 
 export type Park = {
   park_id: string;
@@ -69,36 +72,34 @@ export type RouteParking = {
 
 // Status boje po zauzetosti (poglavlje 6) - dataviz skill status paleta:
 // good/warning/critical, namerno razlicite od kategorickih boja uloga ispod.
+// Pragovi i boje su u _components/status.ts (isti za mapu, legendu i liste).
 function occupancyStatusColor(rate: number | null): string {
-  if (rate === null) return "#898781"; // nema ocitavanja (rupa u podacima)
-  if (rate < 50) return "#0ca30c"; // good
-  if (rate < 80) return "#fab219"; // warning
-  return "#d03b3b"; // critical
+  return STATUS_META[occupancyStatus(rate)].color;
 }
 
-function createDotIcon(color: string, size = 16, ring = "2px solid white") {
+function createDotIcon(color: string, size = 16) {
   return L.divIcon({
     className: "",
-    html: `<div style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:${ring};box-shadow:0 0 3px rgba(0,0,0,0.6);"></div>`,
+    html: `<div class="sp-pin" style="background:${color}"></div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
 }
 
+// Marker parkinga je "pilula" sa procentom zauzetosti, da se status cita i
+// bez boje; preporuceni parking dobija ljubicasti prsten i broj ranga.
 function createParkIcon(rate: number | null, highlightRank?: number) {
-  const color = occupancyStatusColor(rate);
-  if (highlightRank === undefined) {
-    return createDotIcon(color, 14);
-  }
-  const size = 22;
+  const status = occupancyStatus(rate);
+  const label = rate === null ? "–" : `${Math.round(rate)}%`;
+  const recommended = highlightRank !== undefined;
+  const [width, height] = recommended ? [44, 24] : [38, 20];
+  const classes = `sp-marker sp-marker--${status}${recommended ? " sp-marker--recommended" : ""}`;
+  const rankBadge = recommended ? `<span class="sp-marker__rank">${highlightRank}</span>` : "";
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${size}px;height:${size}px;">
-      <div style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:3px solid #4a3aa7;box-shadow:0 0 4px rgba(0,0,0,0.6);"></div>
-      <div style="position:absolute;top:-6px;right:-6px;background:#4a3aa7;color:white;font-size:10px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">${highlightRank}</div>
-    </div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    html: `<div class="${classes}" style="background:${occupancyStatusColor(rate)}">${label}${rankBadge}</div>`,
+    iconSize: [width, height],
+    iconAnchor: [width / 2, height / 2],
   });
 }
 
@@ -167,36 +168,78 @@ function ParkPopupBody({
       : [];
 
   return (
-    <div style={{ minWidth: 260 }}>
-      <strong>{park.name || park.park_id}</strong>
-      {park.type && <span className="badge bg-secondary-subtle text-secondary-emphasis ms-2">{park.type}</span>}
+    <div className="min-w-[260px]">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold leading-snug">{park.name || park.park_id}</div>
+          {park.type && (
+            <span className="mt-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-muted ring-1 ring-border">
+              {park.type}
+            </span>
+          )}
+        </div>
+        <StatusBadge rate={rate} />
+      </div>
 
-      {!hasTarget && (
-        <div className="small text-muted mt-1">
-          Trenutna zauzetost: {rate !== null ? `${rate.toFixed(1)}%` : "nema podatka"}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-surface-2 px-2.5 py-2 ring-1 ring-border/70">
+          <div className="text-[11px] leading-tight text-ink-muted">
+            {hasTarget ? `Zauzetost u ${formatClock(state!.target_time as string)}` : "Trenutna zauzetost"}
+          </div>
+          <div className="mt-0.5 text-base font-semibold tabular-nums">
+            {rate !== null ? `${rate.toFixed(1)}%` : "nema podatka"}
+          </div>
+          {hasTarget && (
+            <div className="text-[11px] font-medium text-ink-subtle">{state?.is_prediction ? "(predikcija)" : "(izmereno)"}</div>
+          )}
         </div>
-      )}
-      {hasTarget && (
-        <div className="small text-muted mt-1">
-          Zauzetost u {formatClock(state!.target_time as string)}
-          {state?.is_prediction ? " (predikcija)" : " (izmereno)"}: {rate !== null ? `${rate.toFixed(1)}%` : "nema podatka"}
-        </div>
-      )}
-      {available !== null && <div className="small text-muted">Slobodna mesta: {available}</div>}
+        {available !== null && (
+          <div className="rounded-lg bg-surface-2 px-2.5 py-2 ring-1 ring-border/70">
+            <div className="text-[11px] leading-tight text-ink-muted">Slobodna mesta</div>
+            <div className="mt-0.5 text-base font-semibold tabular-nums">{available}</div>
+          </div>
+        )}
+      </div>
+
       {state?.horizon_clamped && (
-        <div className="small text-warning mt-1">
+        <div className="mt-2 flex gap-1.5 rounded-lg bg-busy-soft px-2.5 py-1.5 text-xs text-busy-ink">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           Napomena: traženo vreme je van dometa modela (~15.5h unapred) - prikazan je maksimalan horizont.
         </div>
       )}
       {state?.mae !== null && state?.mae !== undefined && (
-        <div className="small text-muted">Pouzdanost (tipična greška): ±{state.mae.toFixed(1)} p.p.</div>
-      )}
-
-      {history && (
-        <div className="mt-2">
-          <Sparkline typical={history.typical_curve} actual={history.actual_today} forecast={forecast} now={history.current_time} />
+        <div className="mt-2 text-xs text-ink-muted">
+          Pouzdanost (tipična greška): <span className="font-semibold text-ink">±{state.mae.toFixed(1)} p.p.</span>
         </div>
       )}
+
+      <div className="mt-3 border-t border-border pt-3">
+        {history ? (
+          <Sparkline typical={history.typical_curve} actual={history.actual_today} forecast={forecast} now={history.current_time} />
+        ) : (
+          <Skeleton className="h-[90px] w-[260px]" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const LEGEND_STATUSES: OccupancyStatus[] = ["free", "busy", "full", "unknown"];
+
+function LegendStatusRow({ status }: { status: OccupancyStatus }) {
+  const meta = STATUS_META[status];
+  const Icon = STATUS_ICON[status];
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="grid h-4 w-7 shrink-0 place-items-center rounded-full ring-2 ring-white"
+        style={{ background: meta.color, boxShadow: "0 0 0 1px rgba(15,23,42,0.2)" }}
+        aria-hidden
+      >
+        <Icon className={`size-2.5 ${status === "busy" ? "text-[#3d2800]" : "text-white"}`} strokeWidth={3} />
+      </span>
+      <span className="whitespace-nowrap font-medium">{meta.label}</span>
+      <span className="ml-auto whitespace-nowrap pl-1 text-ink-subtle tabular-nums">{meta.range}</span>
     </div>
   );
 }
@@ -231,12 +274,13 @@ export default function ParkingMap({
   // Legenda je preko mape (gornji desni ugao) i prekrivala bi popup parkinga -
   // dok je popup otvoren, legenda se sklanja.
   const [popupOpen, setPopupOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const recommendedRank = new Map(recommendations.map((r, i) => [r.park_id, i + 1]));
   const routeParkingIds = new Set(routeParkings.map((p) => p.park_id));
   const mappableParks = parks.filter((p) => p.lat !== null && p.lng !== null);
 
   return (
-    <div style={{ position: "relative", height: "100%", width: "100%" }}>
+    <div className="relative h-full w-full">
       <MapContainer center={NORWICH_CENTER} zoom={12} style={{ height: "100%", width: "100%" }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -246,7 +290,10 @@ export default function ParkingMap({
         <MapBoundsHandler startLocation={startLocation} destination={destination} routeGeometry={routeGeometry} />
 
         {routeGeometry.length > 1 && (
-          <Polyline pathOptions={{ color: "#2a78d6", weight: 5, opacity: 0.8 }} positions={routeGeometry} />
+          <>
+            <Polyline pathOptions={{ color: "#ffffff", weight: 9, opacity: 0.9, interactive: false }} positions={routeGeometry} />
+            <Polyline pathOptions={{ color: "#2a78d6", weight: 5, opacity: 0.9 }} positions={routeGeometry} />
+          </>
         )}
 
         {radiusCenter && radiusMeters && radiusMeters > 0 && (
@@ -268,6 +315,7 @@ export default function ParkingMap({
               key={park.park_id}
               position={[park.lat as number, park.lng as number]}
               icon={createParkIcon(rate, rank)}
+              riseOnHover
               eventHandlers={{
                 popupopen: () => {
                   setPopupOpen(true);
@@ -301,45 +349,53 @@ export default function ParkingMap({
       </MapContainer>
 
       <div
-        style={{
-          display: popupOpen ? "none" : undefined,
-          position: "absolute",
-          top: 12,
-          right: 12,
-          zIndex: 1000,
-          background: "rgba(255,255,255,0.95)",
-          border: "1px solid #dbeafe",
-          borderRadius: "0.85rem",
-          boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)",
-          padding: "0.7rem 0.8rem",
-          pointerEvents: "none",
-        }}
+        className={`absolute right-3 top-3 z-[1000] rounded-card border border-border bg-surface/95 text-[11px] shadow-lg backdrop-blur sm:pointer-events-none sm:w-[196px] sm:p-3 ${popupOpen ? "hidden" : ""}`}
       >
-        <div className="fw-semibold small mb-2">Legenda</div>
-        <div className="d-flex flex-column gap-2 small">
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#0ca30c", display: "inline-block" }} />
-            <span>Zauzetost &lt; 50%</span>
+        {/* Na malom ekranu legenda je sklopiva (inace prekriva vecinu mape). */}
+        <button
+          type="button"
+          onClick={() => setLegendOpen((open) => !open)}
+          aria-expanded={legendOpen}
+          className="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-xs font-semibold outline-none focus-visible:ring-3 focus-visible:ring-primary/30 sm:hidden"
+        >
+          Legenda <span aria-hidden>{legendOpen ? "−" : "+"}</span>
+        </button>
+        <div className="mb-2 hidden text-xs font-semibold sm:block">Legenda</div>
+        <div className={`${legendOpen ? "block" : "hidden"} w-[196px] px-3 pb-3 sm:block sm:w-auto sm:p-0`}>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ink-subtle">Zauzetost</div>
+          <div className="flex flex-col gap-1.5">
+            {LEGEND_STATUSES.map((status) => (
+              <LegendStatusRow key={status} status={status} />
+            ))}
           </div>
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#fab219", display: "inline-block" }} />
-            <span>Zauzetost 50-80%</span>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#d03b3b", display: "inline-block" }} />
-            <span>Zauzetost &gt; 80%</span>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#898781", display: "inline-block", border: "3px solid #4a3aa7" }} />
-            <span>Preporučeno (broj = rang)</span>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#2a78d6", display: "inline-block" }} />
-            <span>Početna tačka</span>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#e34948", display: "inline-block" }} />
-            <span>Destinacija</span>
+          <div className="mb-1 mt-3 text-[10px] font-medium uppercase tracking-wide text-ink-subtle">Oznake</div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="relative h-4 w-7 shrink-0 rounded-full bg-unknown ring-2 ring-accent" aria-hidden>
+                <span className="absolute -right-1.5 -top-1.5 grid size-3 place-items-center rounded-full bg-accent text-[7px] font-bold text-white">
+                  1
+                </span>
+              </span>
+              <span className="font-medium">Preporučeno (broj = rang)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="grid w-7 shrink-0 place-items-center" aria-hidden>
+                <span className="size-3 rounded-full bg-primary ring-2 ring-white" style={{ boxShadow: "0 0 0 1px rgba(15,23,42,0.25)" }} />
+              </span>
+              <span className="font-medium">Početna tačka</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="grid w-7 shrink-0 place-items-center" aria-hidden>
+                <span className="size-3 rounded-full bg-[#e34948] ring-2 ring-white" style={{ boxShadow: "0 0 0 1px rgba(15,23,42,0.25)" }} />
+              </span>
+              <span className="font-medium">Destinacija</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="grid w-7 shrink-0 place-items-center" aria-hidden>
+                <span className="h-1 w-6 rounded-full bg-primary" />
+              </span>
+              <span className="font-medium">Ruta</span>
+            </div>
           </div>
         </div>
       </div>

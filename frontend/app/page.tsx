@@ -2,11 +2,54 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import {
+  Award,
+  CalendarDays,
+  ChartLine,
+  Clock,
+  Eye,
+  EyeOff,
+  Flag,
+  Footprints,
+  LoaderCircle,
+  MapPin,
+  MousePointerClick,
+  Pause,
+  Play,
+  RotateCcw,
+  Route,
+  SearchX,
+  Sparkles,
+  SquareParking,
+  Timer,
+  TriangleAlert,
+} from "lucide-react";
 import CompareChart, { CompareLegend, type CompareResponse } from "./CompareChart";
 import { displayOccupancy } from "./occupancy";
 import type { HistoryResponse, Park, ParkState, Recommendation, RouteParking } from "./ParkingMap";
+import {
+  buttonClass,
+  Card,
+  controlClass,
+  CountBadge,
+  EmptyState,
+  FieldLabel,
+  InfoTile,
+  Skeleton,
+  Stat,
+  StatusBadge,
+} from "./_components/ui";
 
-const ParkingMap = dynamic(() => import("./ParkingMap"), { ssr: false });
+const ParkingMap = dynamic(() => import("./ParkingMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="grid h-full place-items-center bg-surface-2 text-sm text-ink-muted">
+      <span className="flex items-center gap-2">
+        <LoaderCircle className="size-4 animate-spin" aria-hidden /> Učitavanje mape…
+      </span>
+    </div>
+  ),
+});
 
 const API_URL = "http://127.0.0.1:8000";
 const POLL_INTERVAL_MS = 3000;
@@ -110,9 +153,9 @@ function getRecommendationReasons(recommendation: Recommendation, radiusMeters: 
 function getScoreParts(recommendation: Recommendation) {
   const { predicted_availability, closeness, traffic, weights } = recommendation.score_components;
   return [
-    { label: "Dostupnost", value: predicted_availability, weight: weights.w1_predicted_availability, sign: "+", barClass: "bg-success" },
-    { label: "Blizina cilju", value: closeness, weight: weights.w2_proximity, sign: "+", barClass: "bg-info" },
-    { label: "Saobraćaj", value: traffic, weight: weights.w3_traffic, sign: "−", barClass: "bg-secondary" },
+    { label: "Dostupnost", value: predicted_availability, weight: weights.w1_predicted_availability, sign: "+", barClass: "bg-free" },
+    { label: "Blizina cilju", value: closeness, weight: weights.w2_proximity, sign: "+", barClass: "bg-primary" },
+    { label: "Saobraćaj", value: traffic, weight: weights.w3_traffic, sign: "−", barClass: "bg-ink-subtle" },
   ];
 }
 
@@ -422,6 +465,16 @@ export default function Home() {
 
   const cancelNewRoute = () => setPendingMapClick(null);
 
+  // Esc u dijalogu "Zameniti trenutnu rutu?" radi isto sto i "Otkazi".
+  useEffect(() => {
+    if (!pendingMapClick) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPendingMapClick(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pendingMapClick]);
+
   const resetSelection = () => {
     setCurrentLocation(null);
     setDestination(null);
@@ -430,338 +483,506 @@ export default function Home() {
     setPendingMapClick(null);
   };
 
+  // Izvedeno samo za prikaz - ne utice na pozive ni na stanje.
+  const backendDown =
+    error !== null &&
+    (error.startsWith("Ne mogu da učitam listu parkinga") ||
+      error === "Ne mogu da učitam simulacioni sat." ||
+      error === "Ne mogu da učitam stanje parkinga.");
+  const mapHint = !currentLocation
+    ? "Klikni na mapu da postaviš početnu tačku"
+    : !destination
+      ? "Klikni na mapu da postaviš destinaciju"
+      : null;
+  const weights = recommendations[0]?.score_components.weights;
+
   return (
-    <main className="py-3 px-2 px-lg-3">
+    <>
       {pendingMapClick && (
-        <div
-          className="d-flex align-items-center justify-content-center"
-          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.45)", zIndex: 2000 }}
-        >
-          <div className="card border-0 shadow-lg rounded-4" style={{ maxWidth: 360 }}>
-            <div className="card-body p-4">
-              <h2 className="h6 mb-2">Zameniti trenutnu rutu?</h2>
-              <p className="small text-muted mb-3">
-                Već imaš izabranu rutu i preporuke. Klik na mapu bi obrisao trenutnu rutu i postavio novu početnu tačku. Da li si siguran?
-              </p>
-              <div className="d-flex gap-2 justify-content-end">
-                <button type="button" onClick={cancelNewRoute} className="btn btn-outline-secondary btn-sm">
-                  Otkaži
-                </button>
-                <button type="button" onClick={confirmNewRoute} className="btn btn-danger btn-sm">
-                  Obriši i započni novu rutu
-                </button>
+        <div className="fixed inset-0 z-[2000] grid place-items-center bg-ink/45 p-4 backdrop-blur-[2px]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="replace-route-title"
+            aria-describedby="replace-route-desc"
+            className="w-full max-w-sm rounded-card border border-border bg-surface p-5 shadow-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-full-soft text-full-ink">
+                <TriangleAlert className="size-5" aria-hidden />
+              </span>
+              <div>
+                <h2 id="replace-route-title" className="text-base font-semibold">
+                  Zameniti trenutnu rutu?
+                </h2>
+                <p id="replace-route-desc" className="mt-1 text-sm text-ink-muted">
+                  Već imaš izabranu rutu i preporuke. Klik na mapu bi obrisao trenutnu rutu i postavio novu početnu tačku. Da li si siguran?
+                </p>
               </div>
+            </div>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button type="button" autoFocus onClick={cancelNewRoute} className={buttonClass.secondary}>
+                Otkaži
+              </button>
+              <button type="button" onClick={confirmNewRoute} className={buttonClass.danger}>
+                Obriši i započni novu rutu
+              </button>
             </div>
           </div>
         </div>
       )}
-      <div className="container-fluid">
-        <div className="card border-0 shadow-lg rounded-4 overflow-hidden">
-          <div className="card-body p-3 p-lg-3">
-            <div className="row g-3">
-              <div className="col-12 col-lg-8 d-flex flex-column">
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
-                  <div>
-                    <div className="d-inline-flex align-items-center gap-2 px-2 py-1 rounded-pill bg-primary-subtle text-primary-emphasis mb-2">
-                      <span className="rounded-circle bg-gradient" style={{ width: 8, height: 8, background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }} />
-                      <span className="small fw-semibold">Smart Parking · Norfolk</span>
-                    </div>
-                    <h1 className="h5 mb-1">Ruta i preporuka parkinga</h1>
-                    <p className="text-muted small mb-0">
-                      Klikni na mapu da odabereš početnu tačku i destinaciju. Prva tačka je start, druga je cilj.
-                    </p>
-                  </div>
-                  <button type="button" onClick={resetSelection} className="btn btn-outline-primary">
-                    Resetuj izbor
-                  </button>
-                </div>
 
-                <div className="card border-0 mb-2" style={{ background: "linear-gradient(135deg, #eef6ff 0%, #fdf2f8 100%)" }}>
-                  <div className="card-body">
-                    <div className="row g-3 align-items-end">
-                      <div className="col-12 col-md-5">
-                        <label className="form-label fw-semibold">Simulacija</label>
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          <span className="fw-semibold">{formatSimTime(simState?.current_time ?? null)}</span>
-                          {simState?.running ? (
-                            <button type="button" onClick={handlePause} className="btn btn-sm btn-warning">Pauza</button>
-                          ) : (
-                            <button type="button" onClick={handleStart} className="btn btn-sm btn-success">Start</button>
-                          )}
-                          <select
-                            className="form-select form-select-sm"
-                            style={{ width: 110 }}
-                            value={speed}
-                            onChange={(e) => handleSpeedChange(Number(e.target.value))}
-                          >
-                            {SPEED_OPTIONS.map((s) => (
-                              <option key={s} value={s}>{s}x</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="col-12 col-md-4">
-                        <label className="form-label fw-semibold">Vreme (mapa i polazak)</label>
-                        <select
-                          className="form-select form-select-sm"
-                          value={viewTime}
-                          onChange={(e) => setViewTime(e.target.value)}
-                        >
-                          <option value="now">Sada</option>
-                          {TIME_OF_DAY_OPTIONS.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                        <div className="form-text">
-                          Prošlost/sadašnjost = izmereno; budućnost = predikcija (do ~15.5h unapred).
-                        </div>
-                      </div>
-                      <div className="col-12 col-md-3">
-                        <label className="form-label fw-semibold">Radius (m, opcionalno)</label>
-                        <input
-                          type="number"
-                          min={100}
-                          max={1000}
-                          value={radiusMeters}
-                          onChange={(e) => setRadiusMeters(e.target.value)}
-                          className="form-control"
-                          placeholder="npr. 500"
-                        />
-                      </div>
-                    </div>
-                    <div className="d-flex align-items-end gap-2 flex-wrap mt-2">
-                      <div>
-                        <label className="form-label small fw-semibold mb-1">Skok na datum (test period)</label>
-                        <input
-                          type="date"
-                          className="form-control form-control-sm"
-                          value={jumpDate}
-                          min={simState?.test_start.slice(0, 10)}
-                          max={simState ? new Date(new Date(simState.test_end).getTime() - 86400000).toISOString().slice(0, 10) : undefined}
-                          onChange={(e) => setJumpDate(e.target.value)}
-                        />
-                      </div>
-                      <select className="form-select form-select-sm" style={{ width: 90 }} value={jumpTime} onChange={(e) => setJumpTime(e.target.value)}>
-                        {TIME_OF_DAY_OPTIONS.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                      <button type="button" onClick={handleJump} className="btn btn-sm btn-primary">Postavi vreme</button>
-                      <span className="form-text m-0">Model nije video ove podatke pri treningu.</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="row g-2 mb-2">
-                  <div className="col-12 col-md-4">
-                    <div className="card border-0 shadow-sm h-100">
-                      <div className="card-body">
-                        <div className="text-uppercase small text-muted">Početna tačka</div>
-                        {currentLocation ? (
-                          <div className="mt-2">
-                            <div className="fw-semibold">{startPlace?.street || "Učitavanje..."}</div>
-                            <div className="small text-muted">{startPlace?.city || "Učitavanje..."}</div>
-                          </div>
-                        ) : (
-                          <div className="text-muted mt-2">Još nije izabrana</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <div className="card border-0 shadow-sm h-100">
-                      <div className="card-body">
-                        <div className="text-uppercase small text-muted">Destinacija</div>
-                        {destination ? (
-                          <div className="mt-2">
-                            <div className="fw-semibold">{destinationPlace?.street || "Učitavanje..."}</div>
-                            <div className="small text-muted">{destinationPlace?.city || "Učitavanje..."}</div>
-                          </div>
-                        ) : (
-                          <div className="text-muted mt-2">Klikni na mapu</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <div className="card border-0 shadow-sm h-100">
-                      <div className="card-body">
-                        <div className="text-uppercase small text-muted">Ruta</div>
-                        {route ? (
-                          <div className="fw-semibold mt-2">{route.distanceKm.toFixed(1)} km • {Math.round(route.durationMin)} min</div>
-                        ) : (
-                          <div className="text-muted mt-2">{routeLoading ? "Učitavanje rute..." : "Čeka se ruta"}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-4 overflow-hidden border border-secondary-subtle shadow-sm" style={{ height: "75vh", minHeight: 640 }}>
-                  <ParkingMap
-                    parks={parks}
-                    parkStates={parkStates}
-                    historyByPark={historyByPark}
-                    onPopupOpen={handlePopupOpen}
-                    startLocation={currentLocation}
-                    destination={destination}
-                    routeGeometry={route?.geometry ?? []}
-                    routeParkings={routeParkings}
-                    recommendations={recommendations}
-                    radiusMeters={radiusMeters ? Number(radiusMeters) : null}
-                    radiusCenter={destination}
-                    onMapClick={handleMapClick}
-                  />
-                </div>
-              </div>
-
-              <div className="col-12 col-lg-4">
-                <div className="d-flex flex-column gap-2 h-100">
-                  {error && (
-                    <div className="alert alert-warning mb-0" role="alert">
-                      {error}
-                    </div>
-                  )}
-
-                  {compareData && (
-                    <div className="card border-0 shadow-sm">
-                      <div className="card-body">
-                        <div className="d-flex justify-content-between align-items-start mb-1 gap-2">
-                          <div>
-                            <h2 className="h6 mb-0">Predikcija vs stvarnost</h2>
-                            <div className="small text-muted">
-                              {compareData.name ?? compareData.park_id} · {formatSimTime(compareData.from_time)}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${reveal ? "btn-outline-secondary" : "btn-outline-primary"}`}
-                            onClick={() => setReveal((r) => !r)}
-                          >
-                            {reveal ? "Sakrij stvarnost" : "Otkrij stvarnost"}
-                          </button>
-                        </div>
-                        <CompareChart data={compareData} reveal={reveal} showRolling={showRolling} />
-                        <CompareLegend showRolling={showRolling} />
-                        <div className="form-check form-check-inline small mt-1">
-                          <input id="rolling" type="checkbox" className="form-check-input" checked={showRolling} onChange={(e) => setShowRolling(e.target.checked)} />
-                          <label htmlFor="rolling" className="form-check-label">Prognoza „sat unapred” kroz ceo dan</label>
-                        </div>
-                        {!compareData.has_reading_at_from_time && (
-                          <div className="small text-warning-emphasis">Nema očitavanja u ovom trenutku - prognoza nije moguća.</div>
-                        )}
-                        {reveal && (
-                          <div className="small mt-1">
-                            Greška za ovaj dan (MAE, p.p.): prognoza iz „sada” <b>{compareData.mae.forecast ?? "-"}</b> · tipična kriva{" "}
-                            <b>{compareData.mae.typical_same_slots ?? "-"}</b>
-                            {showRolling && <> · sat unapred <b>{compareData.mae.rolling_1h ?? "-"}</b></>}
-                          </div>
-                        )}
-                        <div className="small text-muted mt-1">Klikni na parking na mapi da ga izabereš.</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {routeParkings.length > 0 && (
-                    <div className="card border-0 shadow-sm">
-                      <div className="card-body">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h2 className="h6 mb-0">Parkinzi uz rutu</h2>
-                          <span className="badge bg-info-subtle text-info-emphasis">{routeParkings.length}</span>
-                        </div>
-                        {routeParkings.map((p) => (
-                          <div key={p.park_id} className="small d-flex justify-content-between border-bottom py-1">
-                            <span>{parkName(p.park_id)} ({p.distanceToRouteKm} km od rute)</span>
-                            <span className="fw-semibold">{p.occupancyRate !== null ? `${p.occupancyRate.toFixed(0)}%` : "-"}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="card border-0 shadow-sm flex-grow-1" style={{ minHeight: 320 }}>
-                    <div className="card-body d-flex flex-column p-3 h-100">
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <h2 className="h6 mb-0">Top preporuke za cilj</h2>
-                        <span className="badge bg-success-subtle text-success-emphasis">{recommendations.length}</span>
-                      </div>
-
-                      {!destination && !recommendationLoading && (
-                        <p className="text-muted small mb-0">Izaberi cilj na mapi da vidiš najbolje parkinge.</p>
-                      )}
-                      {recommendationLoading && (
-                        <div className="d-flex flex-column gap-2 mt-2">
-                          {Array.from({ length: 3 }).map((_, index) => (
-                            <div key={index} className="border rounded-3 p-2 bg-light">
-                              <div className="placeholder-glow">
-                                <span className="placeholder col-7 mb-2" />
-                                <span className="placeholder col-5" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {!recommendationLoading && destination && recommendations.length === 0 && (
-                        <div className="border rounded-3 p-3 mt-2 bg-light text-center">
-                          <div className="fw-semibold">Nema parkinga u trenutnom skupu</div>
-                          <div className="small text-muted mt-1">Pokušaj da povećaš radius ili promeniš lokaciju.</div>
-                        </div>
-                      )}
-                      {!recommendationLoading && (!destination || recommendations.length > 0) && (
-                        <div className="overflow-auto mt-2 flex-grow-1">
-                          {recommendations.map((r, i) => {
-                            const reasons = getRecommendationReasons(r, radiusMeters ? Number(radiusMeters) : null);
-
-                            return (
-                              <div key={r.park_id} className="border rounded-3 p-2 mt-2 bg-white shadow-sm">
-                                <div className="d-flex justify-content-between align-items-start gap-2">
-                                  <div className="fw-semibold small">{i + 1}. {parkName(r.park_id)}</div>
-                                  <span className="badge bg-success-subtle text-success-emphasis">{r.score.toFixed(2)}</span>
-                                </div>
-                                <div className="small text-muted mt-1">
-                                  Predikcija za dolazak (~{Math.round(r.eta_minutes)} min, horizont {r.horizon_minutes} min): {r.predicted_occupancy_rate}%
-                                </div>
-                                <div className="small text-muted">Hodanje do cilja: {r.distance_to_destination_km.toFixed(2)} km</div>
-
-                                {reasons.length > 0 && (
-                                  <div className="d-flex flex-wrap gap-1 mt-2">
-                                    {reasons.map((reason) => (
-                                      <span key={reason} className="badge bg-primary-subtle text-primary-emphasis">
-                                        {reason}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-
-                                <div className="mt-2">
-                                  <div className="small text-muted mb-1">Delovi skora (vrednost × ponder)</div>
-                                  <div className="d-flex flex-column gap-1">
-                                    {getScoreParts(r).map((part) => (
-                                      <div key={part.label} className="d-flex align-items-center gap-2">
-                                        <span className="small fw-semibold" style={{ minWidth: 90 }}>{part.label}</span>
-                                        <div className="progress flex-grow-1" style={{ height: "6px" }}>
-                                          <div className={`progress-bar ${part.barClass}`} style={{ width: `${Math.round(part.value * 100)}%` }} />
-                                        </div>
-                                        <span className="small text-muted" style={{ minWidth: 92, textAlign: "right" }}>
-                                          {part.sign} {Math.round(part.value * 100)}% × {part.weight}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <header className="z-[1100] lg:sticky lg:top-0 border-b border-border bg-surface/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-linear-to-br from-primary to-accent text-white shadow-sm">
+              <SquareParking className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold leading-tight">
+                Smart Parking <span className="font-normal text-ink-subtle">· Norfolk</span>
+              </h1>
+              <p className="truncate text-xs text-ink-muted">Ruta i preporuka parkinga na osnovu predikcije zauzetosti</p>
             </div>
           </div>
+
+          <div className="ml-auto flex items-center gap-3 rounded-xl border border-border bg-surface-2 py-1.5 pl-3 pr-1.5">
+            <div className="flex flex-col leading-tight">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-subtle" aria-live="polite">
+                <span
+                  className={`size-2 rounded-full ${simState?.running ? "sp-live-dot bg-free" : simState ? "bg-unknown" : "bg-border"}`}
+                  aria-hidden
+                />
+                {simState ? (simState.running ? "Simulacija radi" : "Pauzirano") : "Povezivanje…"}
+              </span>
+              <span className="text-sm font-semibold tabular-nums">{formatSimTime(simState?.current_time ?? null)}</span>
+            </div>
+            {simState?.running ? (
+              <button type="button" onClick={handlePause} className={buttonClass.warning}>
+                <Pause className="size-4" aria-hidden /> Pauza
+              </button>
+            ) : (
+              <button type="button" onClick={handleStart} className={buttonClass.success}>
+                <Play className="size-4" aria-hidden /> Start
+              </button>
+            )}
+            <label htmlFor="sim-speed" className="sr-only">
+              Brzina simulacije
+            </label>
+            <select
+              id="sim-speed"
+              className={`${controlClass} w-[4.5rem]`}
+              value={speed}
+              onChange={(e) => handleSpeedChange(Number(e.target.value))}
+            >
+              {SPEED_OPTIONS.map((s) => (
+                <option key={s} value={s}>{s}x</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
-    </main>
+      </header>
+
+      <main className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:px-6 lg:py-5 xl:grid-cols-[minmax(0,1fr)_430px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.8fr)]">
+              <div>
+                <FieldLabel htmlFor="view-time">Vreme (mapa i polazak)</FieldLabel>
+                <div className="relative">
+                  <Clock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-subtle" aria-hidden />
+                  <select
+                    id="view-time"
+                    className={`${controlClass} w-full pl-9`}
+                    value={viewTime}
+                    onChange={(e) => setViewTime(e.target.value)}
+                  >
+                    <option value="now">Sada</option>
+                    {TIME_OF_DAY_OPTIONS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-1.5 text-xs text-ink-muted">
+                  Prošlost/sadašnjost = izmereno; budućnost = predikcija (do ~15.5h unapred).
+                </p>
+              </div>
+
+              <div>
+                <FieldLabel htmlFor="radius">Radius (m, opcionalno)</FieldLabel>
+                <div className="relative">
+                  <input
+                    id="radius"
+                    type="number"
+                    min={100}
+                    max={1000}
+                    value={radiusMeters}
+                    onChange={(e) => setRadiusMeters(e.target.value)}
+                    className={`${controlClass} w-full pr-9`}
+                    placeholder="npr. 500"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-subtle">m</span>
+                </div>
+                <p className="mt-1.5 text-xs text-ink-muted">Krug hodanja oko destinacije.</p>
+              </div>
+
+              <div className="md:col-span-2 xl:col-span-1">
+                <FieldLabel htmlFor="jump-date">Skok na datum (test period)</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  <div className="relative min-w-[140px] flex-1">
+                    <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-subtle" aria-hidden />
+                    <input
+                      id="jump-date"
+                      type="date"
+                      className={`${controlClass} w-full pl-9`}
+                      value={jumpDate}
+                      min={simState?.test_start.slice(0, 10)}
+                      max={simState ? new Date(new Date(simState.test_end).getTime() - 86400000).toISOString().slice(0, 10) : undefined}
+                      onChange={(e) => setJumpDate(e.target.value)}
+                    />
+                  </div>
+                  <select
+                    aria-label="Vreme u danu za skok"
+                    className={`${controlClass} w-24`}
+                    value={jumpTime}
+                    onChange={(e) => setJumpTime(e.target.value)}
+                  >
+                    {TIME_OF_DAY_OPTIONS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={handleJump} className={buttonClass.primary}>
+                    Postavi vreme
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-ink-muted">Model nije video ove podatke pri treningu.</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card
+            title="Ruta"
+            icon={Route}
+            subtitle="Klikni na mapu da odabereš početnu tačku i destinaciju. Prva tačka je start, druga je cilj."
+            action={
+              <button type="button" onClick={resetSelection} className={buttonClass.secondary}>
+                <RotateCcw className="size-4" aria-hidden /> <span className="hidden sm:inline">Resetuj izbor</span>
+                <span className="sr-only sm:hidden">Resetuj izbor</span>
+              </button>
+            }
+          >
+            <div className="grid gap-2 sm:grid-cols-3">
+              <InfoTile icon={MapPin} iconClass="bg-primary-soft text-primary-ink" label="Početna tačka">
+                {currentLocation ? (
+                  <>
+                    <div className="truncate font-semibold">{startPlace?.street || "Učitavanje..."}</div>
+                    <div className="truncate text-xs text-ink-muted">{startPlace?.city || "Učitavanje..."}</div>
+                  </>
+                ) : (
+                  <div className="text-ink-muted">Još nije izabrana</div>
+                )}
+              </InfoTile>
+              <InfoTile icon={Flag} iconClass="bg-full-soft text-full-ink" label="Destinacija">
+                {destination ? (
+                  <>
+                    <div className="truncate font-semibold">{destinationPlace?.street || "Učitavanje..."}</div>
+                    <div className="truncate text-xs text-ink-muted">{destinationPlace?.city || "Učitavanje..."}</div>
+                  </>
+                ) : (
+                  <div className="text-ink-muted">Klikni na mapu</div>
+                )}
+              </InfoTile>
+              <InfoTile icon={Route} iconClass="bg-accent-soft text-accent" label="Ruta">
+                {route ? (
+                  <div className="font-semibold tabular-nums">
+                    {route.distanceKm.toFixed(1)} km • {Math.round(route.durationMin)} min
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-ink-muted">
+                    {routeLoading && <LoaderCircle className="size-3.5 animate-spin" aria-hidden />}
+                    {routeLoading ? "Učitavanje rute..." : "Čeka se ruta"}
+                  </div>
+                )}
+              </InfoTile>
+            </div>
+          </Card>
+
+          <div className="relative h-[62vh] min-h-[420px] overflow-hidden rounded-card border border-border bg-surface shadow-xs lg:h-[74vh] lg:min-h-[600px]">
+            <ParkingMap
+              parks={parks}
+              parkStates={parkStates}
+              historyByPark={historyByPark}
+              onPopupOpen={handlePopupOpen}
+              startLocation={currentLocation}
+              destination={destination}
+              routeGeometry={route?.geometry ?? []}
+              routeParkings={routeParkings}
+              recommendations={recommendations}
+              radiusMeters={radiusMeters ? Number(radiusMeters) : null}
+              radiusCenter={destination}
+              onMapClick={handleMapClick}
+            />
+            {parks.length === 0 && !error && (
+              <div className="pointer-events-none absolute left-1/2 top-4 z-[1000] -translate-x-1/2">
+                <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted shadow-md ring-1 ring-border">
+                  <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> Učitavanje parkinga…
+                </span>
+              </div>
+            )}
+            {mapHint && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-8 z-[1000] flex justify-center px-4">
+                <span className="inline-flex items-center gap-2 rounded-full bg-ink/85 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur">
+                  <MousePointerClick className="size-4" aria-hidden /> {mapHint}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <aside className="flex min-w-0 flex-col gap-4">
+          {error && (
+            <div role="alert" className="flex gap-3 rounded-card border border-busy/60 bg-busy-soft p-4 text-sm text-busy-ink">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
+              <div>
+                <div className="font-semibold">{error}</div>
+                {backendDown && (
+                  <div className="mt-1 text-xs">
+                    Proveri da li je backend pokrenut (<code className="rounded bg-white/70 px-1 py-0.5 font-mono">npm run backend</code>, port 8000), pa osveži stranicu.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Card
+            title="Top preporuke za cilj"
+            icon={Sparkles}
+            subtitle="Dostupnost pri dolasku, blizina cilju, saobraćaj"
+            action={<CountBadge count={recommendations.length} />}
+          >
+            <div aria-live="polite" aria-busy={recommendationLoading}>
+              {!destination && !recommendationLoading && (
+                <EmptyState icon={MousePointerClick} title="Još nema destinacije">
+                  Izaberi cilj na mapi da vidiš najbolje parkinge.
+                </EmptyState>
+              )}
+              {recommendationLoading && (
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="rounded-xl border border-border p-3.5">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="size-8 rounded-full" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="ml-auto h-5 w-10" />
+                      </div>
+                      <Skeleton className="mt-3 h-3 w-4/5" />
+                      <Skeleton className="mt-2 h-3 w-3/5" />
+                    </div>
+                  ))}
+                  <span className="sr-only">Učitavanje preporuka…</span>
+                </div>
+              )}
+              {!recommendationLoading && destination && recommendations.length === 0 && (
+                <EmptyState icon={SearchX} title="Nema parkinga u trenutnom skupu">
+                  Pokušaj da povećaš radius ili promeniš lokaciju.
+                </EmptyState>
+              )}
+              {!recommendationLoading && (!destination || recommendations.length > 0) && recommendations.length > 0 && (
+                <ol className="flex flex-col gap-3">
+                  {recommendations.map((r, i) => {
+                    const reasons = getRecommendationReasons(r, radiusMeters ? Number(radiusMeters) : null);
+                    const top = i === 0;
+
+                    return (
+                      <li
+                        key={r.park_id}
+                        className={`rounded-xl p-3.5 ${top ? "border-2 border-accent/45 bg-accent-soft/60 shadow-sm" : "border border-border bg-surface"}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span
+                              className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums ${top ? "bg-accent text-white" : "bg-surface-2 text-ink-muted ring-1 ring-border"}`}
+                              aria-label={`Rang ${i + 1}`}
+                            >
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0">
+                              {top && (
+                                <div className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                                  <Award className="size-3.5" aria-hidden /> Preporučeno
+                                </div>
+                              )}
+                              <div className="truncate font-semibold leading-snug">{parkName(r.park_id)}</div>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-[10px] font-medium uppercase tracking-wide text-ink-subtle">Skor</div>
+                            <div className={`font-semibold tabular-nums ${top ? "text-xl text-accent" : "text-base"}`}>
+                              {r.score.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                          <div className="col-span-2 flex flex-wrap items-center justify-between gap-2">
+                            <dt className="text-ink-muted">Predikcija za dolazak</dt>
+                            <dd>
+                              <StatusBadge rate={r.predicted_occupancy_rate} value={`${r.predicted_occupancy_rate}%`} />
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="flex items-center gap-1 text-ink-muted">
+                              <Timer className="size-3.5" aria-hidden /> Dolazak
+                            </dt>
+                            <dd className="mt-0.5 font-medium tabular-nums">
+                              ~{Math.round(r.eta_minutes)} min <span className="font-normal text-ink-subtle">· horizont {r.horizon_minutes} min</span>
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="flex items-center gap-1 text-ink-muted">
+                              <Footprints className="size-3.5" aria-hidden /> Hodanje do cilja
+                            </dt>
+                            <dd className="mt-0.5 font-medium tabular-nums">{r.distance_to_destination_km.toFixed(2)} km</dd>
+                          </div>
+                        </dl>
+
+                        {reasons.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {reasons.map((reason) => (
+                              <span
+                                key={reason}
+                                className="inline-flex items-center rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-ink"
+                              >
+                                {reason}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className={`mt-3 rounded-lg p-2.5 ring-1 ring-border/70 ${top ? "bg-surface/80" : "bg-surface-2"}`}>
+                          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-subtle">
+                            Zašto? Delovi skora (vrednost × ponder)
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            {getScoreParts(r).map((part) => (
+                              <div key={part.label} className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-2 text-xs">
+                                <span className="font-medium">{part.label}</span>
+                                <div className="h-1.5 overflow-hidden rounded-full bg-border/80">
+                                  <div
+                                    className={`h-full rounded-full transition-[width] duration-300 ${part.barClass}`}
+                                    style={{ width: `${Math.round(part.value * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="min-w-[88px] text-right text-[11px] tabular-nums text-ink-muted">
+                                  {part.sign} {Math.round(part.value * 100)}% × {part.weight}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {weights && !recommendationLoading && recommendations.length > 0 && (
+                <p className="mt-3 border-t border-border pt-3 font-mono text-[11px] text-ink-muted">
+                  skor = {weights.w1_predicted_availability}·dostupnost + {weights.w2_proximity}·blizina − {weights.w3_traffic}·saobraćaj
+                </p>
+              )}
+            </div>
+          </Card>
+
+          {routeParkings.length > 0 && (
+            <Card
+              title="Parkinzi uz rutu"
+              icon={Route}
+              subtitle={`Do ${ROUTE_DISTANCE_LIMIT_KM} km od rute vožnje`}
+              action={<CountBadge count={routeParkings.length} />}
+            >
+              <ul className="divide-y divide-border">
+                {routeParkings.map((p) => (
+                  <li key={p.park_id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{parkName(p.park_id)}</div>
+                      <div className="text-xs text-ink-muted">{p.distanceToRouteKm} km od rute</div>
+                    </div>
+                    <StatusBadge
+                      rate={p.occupancyRate}
+                      value={p.occupancyRate !== null ? `${p.occupancyRate.toFixed(0)}%` : undefined}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {compareData && (
+            <Card
+              title="Predikcija vs stvarnost"
+              icon={ChartLine}
+              subtitle={
+                <>
+                  {compareData.name ?? compareData.park_id} · {formatSimTime(compareData.from_time)}
+                </>
+              }
+              action={
+                <button
+                  type="button"
+                  aria-pressed={reveal}
+                  className={reveal ? buttonClass.secondary : buttonClass.primary}
+                  onClick={() => setReveal((r) => !r)}
+                >
+                  {reveal ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                  {reveal ? "Sakrij stvarnost" : "Otkrij stvarnost"}
+                </button>
+              }
+            >
+              <div className="rounded-lg bg-surface-2 p-2 ring-1 ring-border/70">
+                <CompareChart data={compareData} reveal={reveal} showRolling={showRolling} />
+              </div>
+              <div className="mt-2.5">
+                <CompareLegend showRolling={showRolling} />
+              </div>
+              <label htmlFor="rolling" className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-xs">
+                <input
+                  id="rolling"
+                  type="checkbox"
+                  className="size-4 cursor-pointer accent-primary"
+                  checked={showRolling}
+                  onChange={(e) => setShowRolling(e.target.checked)}
+                />
+                Prognoza „sat unapred” kroz ceo dan
+              </label>
+              {!compareData.has_reading_at_from_time && (
+                <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-busy-soft px-2.5 py-1.5 text-xs text-busy-ink">
+                  <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+                  Nema očitavanja u ovom trenutku - prognoza nije moguća.
+                </div>
+              )}
+              {reveal && (
+                <div className="mt-3">
+                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-subtle">
+                    Greška za ovaj dan (MAE, p.p.)
+                  </div>
+                  <div className={`grid gap-2 ${showRolling ? "grid-cols-3" : "grid-cols-2"}`}>
+                    <Stat label="Prognoza iz „sada”" value={compareData.mae.forecast} />
+                    <Stat label="Tipična kriva" value={compareData.mae.typical_same_slots} />
+                    {showRolling && <Stat label="Sat unapred" value={compareData.mae.rolling_1h} />}
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-ink-subtle">
+                <MousePointerClick className="size-3.5" aria-hidden /> Klikni na parking na mapi da ga izabereš.
+              </p>
+            </Card>
+          )}
+        </aside>
+      </main>
+
+      <footer className="mx-auto w-full max-w-[1600px] px-4 pb-5 text-xs text-ink-subtle lg:px-6">
+        Smart Parking · master rad, Elektronski fakultet u Nišu · Podaci: parkinzi Norfolka (Stolfi, Alba, Yao 2020), UK Open Government Licence
+      </footer>
+    </>
   );
 }
