@@ -28,6 +28,7 @@ export const buttonClass = {
 };
 
 export function Card({
+  id,
   title,
   icon: Icon,
   subtitle,
@@ -35,6 +36,7 @@ export function Card({
   children,
   className = "",
 }: {
+  id?: string;
   title?: ReactNode;
   icon?: LucideIcon;
   subtitle?: ReactNode;
@@ -43,7 +45,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-card border border-border bg-surface shadow-xs ${className}`}>
+    <section id={id} className={`rounded-card border border-border bg-surface shadow-xs ${className}`}>
       {title && (
         <header className="flex items-start justify-between gap-3 px-4 pt-4">
           <div className="flex min-w-0 items-start gap-2.5">

@@ -344,3 +344,11 @@ Odluke: Bootstrap je uklonjen, rad je na grani `ui-redesign`, bez dark mode-a. T
 - Poruka o grešci ostaje i kad se backend vrati.
 - Lokalni izbor brzine nije sinhronizovan sa backendom.
 - Nominatim vraća naziv grada na lokalnom pismu (npr. „Норич“), jer zahtev nema `accept-language`.
+
+### Dopuna: mapa kao centralni deo (2026-10-27)
+
+- `main` je jedna kolona preko cele širine: kontrole i ruta (na ≥ xl jedna pored druge), pa banner greške, pa **mapa preko cele širine** (`calc(100vh - 7rem)` na desktopu), pa ispod mape preporuke (levo; #1 preko cele širine, ostale u mreži 2×2) i desno „Parkinzi uz rutu“ i „Predikcija vs stvarnost“.
+- Pošto su preporuke ispod mape, na vrhu mape stoji kartica „Preporučeno: #1 … · skor“ sa dugmetom „Sve preporuke“ (link `#preporuke`, glatko skrolovanje). Dok se računa, prikazuje se „Računam preporuke…“. Na mobilnom je kartica na dnu mape.
+- Hint „Klikni na mapu…“ je na desktopu na vrhu mape i prikazuje se tek kad se parkinzi učitaju.
+- Header i footer su preko cele širine.
+- Provereno u Chrome-u (1531 px): start → cilj → kartica #1 na mapi → „Sve preporuke“ skroluje do liste. Build je OK. Lint daje iste 4 stare greške.

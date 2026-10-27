@@ -6,6 +6,7 @@ import {
   Award,
   CalendarDays,
   ChartLine,
+  ChevronDown,
   Clock,
   Eye,
   EyeOff,
@@ -533,7 +534,7 @@ export default function Home() {
       )}
 
       <header className="z-[1100] lg:sticky lg:top-0 border-b border-border bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 lg:px-6">
+        <div className="flex w-full flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-linear-to-br from-primary to-accent text-white shadow-sm">
               <SquareParking className="size-5" aria-hidden />
@@ -583,10 +584,11 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:px-6 lg:py-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-        <div className="flex min-w-0 flex-col gap-4">
+      <main className="flex w-full flex-1 flex-col gap-4 px-4 py-4 lg:px-6 lg:py-5">
+        {/* Kontrole i ruta: na sirokom ekranu jedna pored druge, da mapa dobije visinu. */}
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
           <Card>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.8fr)]">
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.8fr)]">
               <div>
                 <FieldLabel htmlFor="view-time">Vreme (mapa i polazak)</FieldLabel>
                 <div className="relative">
@@ -626,7 +628,7 @@ export default function Home() {
                 <p className="mt-1.5 text-xs text-ink-muted">Krug hodanja oko destinacije.</p>
               </div>
 
-              <div className="md:col-span-2 xl:col-span-1">
+              <div className="md:col-span-2 2xl:col-span-1">
                 <FieldLabel htmlFor="jump-date">Skok na datum (test period)</FieldLabel>
                 <div className="flex flex-wrap gap-2">
                   <div className="relative min-w-[140px] flex-1">
@@ -706,55 +708,85 @@ export default function Home() {
               </InfoTile>
             </div>
           </Card>
-
-          <div className="relative h-[62vh] min-h-[420px] overflow-hidden rounded-card border border-border bg-surface shadow-xs lg:h-[74vh] lg:min-h-[600px]">
-            <ParkingMap
-              parks={parks}
-              parkStates={parkStates}
-              historyByPark={historyByPark}
-              onPopupOpen={handlePopupOpen}
-              startLocation={currentLocation}
-              destination={destination}
-              routeGeometry={route?.geometry ?? []}
-              routeParkings={routeParkings}
-              recommendations={recommendations}
-              radiusMeters={radiusMeters ? Number(radiusMeters) : null}
-              radiusCenter={destination}
-              onMapClick={handleMapClick}
-            />
-            {parks.length === 0 && !error && (
-              <div className="pointer-events-none absolute left-1/2 top-4 z-[1000] -translate-x-1/2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted shadow-md ring-1 ring-border">
-                  <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> Učitavanje parkinga…
-                </span>
-              </div>
-            )}
-            {mapHint && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-8 z-[1000] flex justify-center px-4">
-                <span className="inline-flex items-center gap-2 rounded-full bg-ink/85 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur">
-                  <MousePointerClick className="size-4" aria-hidden /> {mapHint}
-                </span>
-              </div>
-            )}
-          </div>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4">
-          {error && (
-            <div role="alert" className="flex gap-3 rounded-card border border-busy/60 bg-busy-soft p-4 text-sm text-busy-ink">
-              <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
-              <div>
-                <div className="font-semibold">{error}</div>
-                {backendDown && (
-                  <div className="mt-1 text-xs">
-                    Proveri da li je backend pokrenut (<code className="rounded bg-white/70 px-1 py-0.5 font-mono">npm run backend</code>, port 8000), pa osveži stranicu.
-                  </div>
+        {error && (
+          <div role="alert" className="flex gap-3 rounded-card border border-busy/60 bg-busy-soft p-4 text-sm text-busy-ink">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
+            <div>
+              <div className="font-semibold">{error}</div>
+              {backendDown && (
+                <div className="mt-1 text-xs">
+                  Proveri da li je backend pokrenut (<code className="rounded bg-white/70 px-1 py-0.5 font-mono">npm run backend</code>, port 8000), pa osveži stranicu.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-card border border-border bg-surface shadow-xs lg:h-[calc(100vh-7rem)] lg:min-h-[560px]">
+          <ParkingMap
+            parks={parks}
+            parkStates={parkStates}
+            historyByPark={historyByPark}
+            onPopupOpen={handlePopupOpen}
+            startLocation={currentLocation}
+            destination={destination}
+            routeGeometry={route?.geometry ?? []}
+            routeParkings={routeParkings}
+            recommendations={recommendations}
+            radiusMeters={radiusMeters ? Number(radiusMeters) : null}
+            radiusCenter={destination}
+            onMapClick={handleMapClick}
+          />
+          {parks.length === 0 && !error && (
+            <div className="pointer-events-none absolute left-1/2 top-4 z-[1000] -translate-x-1/2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted shadow-md ring-1 ring-border">
+                <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> Učitavanje parkinga…
+              </span>
+            </div>
+          )}
+          {mapHint && parks.length > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-8 z-[1000] flex justify-center px-4 sm:bottom-auto sm:top-3">
+              <span className="inline-flex items-center gap-2 rounded-full bg-ink/85 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur">
+                <MousePointerClick className="size-4" aria-hidden /> {mapHint}
+              </span>
+            </div>
+          )}
+          {destination && (recommendationLoading || recommendations.length > 0) && (
+            <div className="absolute bottom-8 left-1/2 z-[1000] w-[min(92%,460px)] -translate-x-1/2 sm:bottom-auto sm:top-3 sm:w-[min(56%,460px)]">
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-surface/95 p-2.5 pl-3 shadow-lg backdrop-blur">
+                {recommendationLoading ? (
+                  <span className="flex items-center gap-2 py-1.5 text-sm text-ink-muted">
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden /> Računam preporuke…
+                  </span>
+                ) : (
+                  <>
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-white">1</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">Preporučeno</div>
+                      <div className="truncate text-sm font-semibold">
+                        {parkName(recommendations[0].park_id)}{" "}
+                        <span className="font-normal text-ink-muted">· skor {recommendations[0].score.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <a href="#preporuke" className={buttonClass.secondary}>
+                      <span className="hidden sm:inline">Sve preporuke</span>
+                      <span className="sr-only sm:hidden">Sve preporuke</span>
+                      <ChevronDown className="size-4" aria-hidden />
+                    </a>
+                  </>
                 )}
               </div>
             </div>
           )}
+        </div>
 
+        {/* Ispod mape: preporuke levo, parkinzi uz rutu i poredjenje desno. */}
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <Card
+            id="preporuke"
+            className="scroll-mt-24"
             title="Top preporuke za cilj"
             icon={Sparkles}
             subtitle="Dostupnost pri dolasku, blizina cilju, saobraćaj"
@@ -767,9 +799,9 @@ export default function Home() {
                 </EmptyState>
               )}
               {recommendationLoading && (
-                <div className="flex flex-col gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="rounded-xl border border-border p-3.5">
+                    <div key={index} className={`rounded-xl border border-border p-3.5 ${index === 0 ? "md:col-span-2" : ""}`}>
                       <div className="flex items-center gap-3">
                         <Skeleton className="size-8 rounded-full" />
                         <Skeleton className="h-4 w-1/2" />
@@ -788,7 +820,7 @@ export default function Home() {
                 </EmptyState>
               )}
               {!recommendationLoading && (!destination || recommendations.length > 0) && recommendations.length > 0 && (
-                <ol className="flex flex-col gap-3">
+                <ol className="grid gap-3 md:grid-cols-2">
                   {recommendations.map((r, i) => {
                     const reasons = getRecommendationReasons(r, radiusMeters ? Number(radiusMeters) : null);
                     const top = i === 0;
@@ -796,7 +828,7 @@ export default function Home() {
                     return (
                       <li
                         key={r.park_id}
-                        className={`rounded-xl p-3.5 ${top ? "border-2 border-accent/45 bg-accent-soft/60 shadow-sm" : "border border-border bg-surface"}`}
+                        className={`rounded-xl p-3.5 ${top ? "border-2 border-accent/45 bg-accent-soft/60 shadow-sm md:col-span-2" : "border border-border bg-surface"}`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex min-w-0 items-start gap-3">
@@ -893,94 +925,96 @@ export default function Home() {
             </div>
           </Card>
 
-          {routeParkings.length > 0 && (
-            <Card
-              title="Parkinzi uz rutu"
-              icon={Route}
-              subtitle={`Do ${ROUTE_DISTANCE_LIMIT_KM} km od rute vožnje`}
-              action={<CountBadge count={routeParkings.length} />}
-            >
-              <ul className="divide-y divide-border">
-                {routeParkings.map((p) => (
-                  <li key={p.park_id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{parkName(p.park_id)}</div>
-                      <div className="text-xs text-ink-muted">{p.distanceToRouteKm} km od rute</div>
-                    </div>
-                    <StatusBadge
-                      rate={p.occupancyRate}
-                      value={p.occupancyRate !== null ? `${p.occupancyRate.toFixed(0)}%` : undefined}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
+          <aside className="flex min-w-0 flex-col gap-4">
+            {routeParkings.length > 0 && (
+              <Card
+                title="Parkinzi uz rutu"
+                icon={Route}
+                subtitle={`Do ${ROUTE_DISTANCE_LIMIT_KM} km od rute vožnje`}
+                action={<CountBadge count={routeParkings.length} />}
+              >
+                <ul className="divide-y divide-border">
+                  {routeParkings.map((p) => (
+                    <li key={p.park_id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{parkName(p.park_id)}</div>
+                        <div className="text-xs text-ink-muted">{p.distanceToRouteKm} km od rute</div>
+                      </div>
+                      <StatusBadge
+                        rate={p.occupancyRate}
+                        value={p.occupancyRate !== null ? `${p.occupancyRate.toFixed(0)}%` : undefined}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
 
-          {compareData && (
-            <Card
-              title="Predikcija vs stvarnost"
-              icon={ChartLine}
-              subtitle={
-                <>
-                  {compareData.name ?? compareData.park_id} · {formatSimTime(compareData.from_time)}
-                </>
-              }
-              action={
-                <button
-                  type="button"
-                  aria-pressed={reveal}
-                  className={reveal ? buttonClass.secondary : buttonClass.primary}
-                  onClick={() => setReveal((r) => !r)}
-                >
-                  {reveal ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
-                  {reveal ? "Sakrij stvarnost" : "Otkrij stvarnost"}
-                </button>
-              }
-            >
-              <div className="rounded-lg bg-surface-2 p-2 ring-1 ring-border/70">
-                <CompareChart data={compareData} reveal={reveal} showRolling={showRolling} />
-              </div>
-              <div className="mt-2.5">
-                <CompareLegend showRolling={showRolling} />
-              </div>
-              <label htmlFor="rolling" className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-xs">
-                <input
-                  id="rolling"
-                  type="checkbox"
-                  className="size-4 cursor-pointer accent-primary"
-                  checked={showRolling}
-                  onChange={(e) => setShowRolling(e.target.checked)}
-                />
-                Prognoza „sat unapred” kroz ceo dan
-              </label>
-              {!compareData.has_reading_at_from_time && (
-                <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-busy-soft px-2.5 py-1.5 text-xs text-busy-ink">
-                  <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
-                  Nema očitavanja u ovom trenutku - prognoza nije moguća.
+            {compareData && (
+              <Card
+                title="Predikcija vs stvarnost"
+                icon={ChartLine}
+                subtitle={
+                  <>
+                    {compareData.name ?? compareData.park_id} · {formatSimTime(compareData.from_time)}
+                  </>
+                }
+                action={
+                  <button
+                    type="button"
+                    aria-pressed={reveal}
+                    className={reveal ? buttonClass.secondary : buttonClass.primary}
+                    onClick={() => setReveal((r) => !r)}
+                  >
+                    {reveal ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                    {reveal ? "Sakrij stvarnost" : "Otkrij stvarnost"}
+                  </button>
+                }
+              >
+                <div className="rounded-lg bg-surface-2 p-2 ring-1 ring-border/70">
+                  <CompareChart data={compareData} reveal={reveal} showRolling={showRolling} />
                 </div>
-              )}
-              {reveal && (
-                <div className="mt-3">
-                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-subtle">
-                    Greška za ovaj dan (MAE, p.p.)
-                  </div>
-                  <div className={`grid gap-2 ${showRolling ? "grid-cols-3" : "grid-cols-2"}`}>
-                    <Stat label="Prognoza iz „sada”" value={compareData.mae.forecast} />
-                    <Stat label="Tipična kriva" value={compareData.mae.typical_same_slots} />
-                    {showRolling && <Stat label="Sat unapred" value={compareData.mae.rolling_1h} />}
-                  </div>
+                <div className="mt-2.5">
+                  <CompareLegend showRolling={showRolling} />
                 </div>
-              )}
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-ink-subtle">
-                <MousePointerClick className="size-3.5" aria-hidden /> Klikni na parking na mapi da ga izabereš.
-              </p>
-            </Card>
-          )}
-        </aside>
+                <label htmlFor="rolling" className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-xs">
+                  <input
+                    id="rolling"
+                    type="checkbox"
+                    className="size-4 cursor-pointer accent-primary"
+                    checked={showRolling}
+                    onChange={(e) => setShowRolling(e.target.checked)}
+                  />
+                  Prognoza „sat unapred” kroz ceo dan
+                </label>
+                {!compareData.has_reading_at_from_time && (
+                  <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-busy-soft px-2.5 py-1.5 text-xs text-busy-ink">
+                    <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+                    Nema očitavanja u ovom trenutku - prognoza nije moguća.
+                  </div>
+                )}
+                {reveal && (
+                  <div className="mt-3">
+                    <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-subtle">
+                      Greška za ovaj dan (MAE, p.p.)
+                    </div>
+                    <div className={`grid gap-2 ${showRolling ? "grid-cols-3" : "grid-cols-2"}`}>
+                      <Stat label="Prognoza iz „sada”" value={compareData.mae.forecast} />
+                      <Stat label="Tipična kriva" value={compareData.mae.typical_same_slots} />
+                      {showRolling && <Stat label="Sat unapred" value={compareData.mae.rolling_1h} />}
+                    </div>
+                  </div>
+                )}
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-ink-subtle">
+                  <MousePointerClick className="size-3.5" aria-hidden /> Klikni na parking na mapi da ga izabereš.
+                </p>
+              </Card>
+            )}
+          </aside>
+        </div>
       </main>
 
-      <footer className="mx-auto w-full max-w-[1600px] px-4 pb-5 text-xs text-ink-subtle lg:px-6">
+      <footer className="w-full px-4 pb-5 text-xs text-ink-subtle lg:px-6">
         Smart Parking · master rad, Elektronski fakultet u Nišu · Podaci: parkinzi Norfolka (Stolfi, Alba, Yao 2020), UK Open Government Licence
       </footer>
     </>
