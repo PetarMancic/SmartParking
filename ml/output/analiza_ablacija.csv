@@ -1,0 +1,7 @@
+﻿varijanta,izbaceno,MAE,RMSE,MAE_30min,MAE_60min,MAE_120min,MAE_240min,MAE_480min,MAE_900min,trening_s
+pun model,-,4.85,7.93,2.87,3.46,4.32,5.07,5.73,4.4,60
+bez trenutnog stanja,"y_t, y_t1, y_t2, delta",5.2,8.48,4.93,4.99,5.06,5.19,5.65,4.12,52
+bez istog termina ranije,"y_yesterday, y_lastweek",5.82,9.08,3.09,3.68,4.96,6.24,6.38,6.96,52
+samo kalendar i parking,"y_t, y_t1, y_t2, delta, y_yesterday, y_lastweek",6.94,10.57,7.05,7.11,7.12,6.89,6.61,6.96,38
+bez identiteta parkinga,"carpark, capacity",5.13,8.24,2.84,3.59,4.58,5.4,6.05,4.55,47
+bez praznika,holiday,4.85,7.92,2.85,3.46,4.31,5.08,5.72,4.39,54

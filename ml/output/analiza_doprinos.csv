@@ -1,0 +1,40 @@
+﻿grupa_horizonata,feature,doprinos_pp
+do 2 h,y_t,4.09
+do 2 h,y_t1,0.366
+do 2 h,y_t2,0.56
+do 2 h,delta,2.001
+do 2 h,y_yesterday,6.136
+do 2 h,y_lastweek,10.44
+do 2 h,hour,3.774
+do 2 h,dow,1.894
+do 2 h,weekend,0.183
+do 2 h,holiday,0.107
+do 2 h,carpark,3.39
+do 2 h,capacity,0.093
+do 2 h,horizon_minutes,1.512
+2–8 h,y_t,2.52
+2–8 h,y_t1,0.217
+2–8 h,y_t2,0.493
+2–8 h,delta,1.395
+2–8 h,y_yesterday,6.668
+2–8 h,y_lastweek,11.23
+2–8 h,hour,3.795
+2–8 h,dow,1.963
+2–8 h,weekend,0.191
+2–8 h,holiday,0.104
+2–8 h,carpark,3.758
+2–8 h,capacity,0.126
+2–8 h,horizon_minutes,0.82
+preko 8 h,y_t,2.214
+preko 8 h,y_t1,0.198
+preko 8 h,y_t2,0.483
+preko 8 h,delta,0.955
+preko 8 h,y_yesterday,7.311
+preko 8 h,y_lastweek,12.147
+preko 8 h,hour,4.181
+preko 8 h,dow,2.165
+preko 8 h,weekend,0.216
+preko 8 h,holiday,0.116
+preko 8 h,carpark,3.623
+preko 8 h,capacity,0.132
+preko 8 h,horizon_minutes,1.498

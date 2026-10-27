@@ -42,6 +42,20 @@ def _lookup(history: pd.Series, time: pd.Timestamp) -> float:
     return history.get(time, np.nan)
 
 
+# Ako nema merenja u istom terminu pre 7 dana (npr. senzor tada nije radio),
+# uzima se isti termin 14 dana ranije - isti dan u nedelji, model se ne
+# trenira ponovo. Korak 5 (ml/analyze_model.py, deo "nedostajuci"): greska na
+# takvim slucajevima pada sa 8,27 na 5,82 p.p., za 14.10.2017 sa 7,90 na 4,44.
+LASTWEEK_FALLBACK_DAYS = 14
+
+
+def _same_slot_last_week(history: pd.Series, target_time: pd.Timestamp) -> float:
+    value = _lookup(history, target_time - pd.Timedelta(days=7))
+    if pd.isna(value):
+        value = _lookup(history, target_time - pd.Timedelta(days=LASTWEEK_FALLBACK_DAYS))
+    return value
+
+
 def build_feature_row(
     history: pd.Series,
     now: pd.Timestamp,
@@ -61,7 +75,7 @@ def build_feature_row(
         "y_t2": _lookup(history, now - pd.Timedelta(minutes=60)),
         "delta": y_t - y_t1,
         "y_yesterday": _lookup(history, target_time - pd.Timedelta(days=1)),
-        "y_lastweek": _lookup(history, target_time - pd.Timedelta(days=7)),
+        "y_lastweek": _same_slot_last_week(history, target_time),
         "hour": target_time.hour + target_time.minute / 60,
         "dow": target_time.dayofweek,
         "weekend": int(target_time.dayofweek >= 5),

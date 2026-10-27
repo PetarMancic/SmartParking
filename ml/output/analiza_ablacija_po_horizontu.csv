@@ -1,0 +1,187 @@
+﻿varijanta,horizon_minutes,MAE
+pun model,30,2.87
+pun model,60,3.461
+pun model,90,3.966
+pun model,120,4.315
+pun model,150,4.576
+pun model,180,4.777
+pun model,210,4.958
+pun model,240,5.066
+pun model,270,5.163
+pun model,300,5.253
+pun model,330,5.334
+pun model,360,5.414
+pun model,390,5.51
+pun model,420,5.566
+pun model,450,5.649
+pun model,480,5.734
+pun model,510,5.835
+pun model,540,5.968
+pun model,570,5.934
+pun model,600,5.887
+pun model,630,5.851
+pun model,660,5.831
+pun model,690,5.757
+pun model,720,5.536
+pun model,750,5.332
+pun model,780,5.04
+pun model,810,4.779
+pun model,840,4.524
+pun model,870,4.377
+pun model,900,4.402
+pun model,930,4.499
+bez trenutnog stanja,30,4.934
+bez trenutnog stanja,60,4.994
+bez trenutnog stanja,90,5.04
+bez trenutnog stanja,120,5.065
+bez trenutnog stanja,150,5.092
+bez trenutnog stanja,180,5.115
+bez trenutnog stanja,210,5.15
+bez trenutnog stanja,240,5.191
+bez trenutnog stanja,270,5.24
+bez trenutnog stanja,300,5.31
+bez trenutnog stanja,330,5.375
+bez trenutnog stanja,360,5.429
+bez trenutnog stanja,390,5.476
+bez trenutnog stanja,420,5.523
+bez trenutnog stanja,450,5.579
+bez trenutnog stanja,480,5.649
+bez trenutnog stanja,510,5.745
+bez trenutnog stanja,540,5.878
+bez trenutnog stanja,570,5.874
+bez trenutnog stanja,600,5.857
+bez trenutnog stanja,630,5.836
+bez trenutnog stanja,660,5.82
+bez trenutnog stanja,690,5.727
+bez trenutnog stanja,720,5.477
+bez trenutnog stanja,750,5.252
+bez trenutnog stanja,780,4.916
+bez trenutnog stanja,810,4.634
+bez trenutnog stanja,840,4.34
+bez trenutnog stanja,870,4.159
+bez trenutnog stanja,900,4.122
+bez trenutnog stanja,930,4.133
+bez istog termina ranije,30,3.092
+bez istog termina ranije,60,3.683
+bez istog termina ranije,90,4.354
+bez istog termina ranije,120,4.964
+bez istog termina ranije,150,5.479
+bez istog termina ranije,180,5.825
+bez istog termina ranije,210,6.066
+bez istog termina ranije,240,6.241
+bez istog termina ranije,270,6.353
+bez istog termina ranije,300,6.454
+bez istog termina ranije,330,6.438
+bez istog termina ranije,360,6.415
+bez istog termina ranije,390,6.428
+bez istog termina ranije,420,6.403
+bez istog termina ranije,450,6.355
+bez istog termina ranije,480,6.377
+bez istog termina ranije,510,6.403
+bez istog termina ranije,540,6.478
+bez istog termina ranije,570,6.386
+bez istog termina ranije,600,6.359
+bez istog termina ranije,630,6.415
+bez istog termina ranije,660,6.584
+bez istog termina ranije,690,6.799
+bez istog termina ranije,720,6.926
+bez istog termina ranije,750,6.853
+bez istog termina ranije,780,6.8
+bez istog termina ranije,810,6.762
+bez istog termina ranije,840,6.697
+bez istog termina ranije,870,6.723
+bez istog termina ranije,900,6.963
+bez istog termina ranije,930,7.202
+samo kalendar i parking,30,7.05
+samo kalendar i parking,60,7.112
+samo kalendar i parking,90,7.141
+samo kalendar i parking,120,7.122
+samo kalendar i parking,150,7.072
+samo kalendar i parking,180,6.996
+samo kalendar i parking,210,6.942
+samo kalendar i parking,240,6.892
+samo kalendar i parking,270,6.861
+samo kalendar i parking,300,6.878
+samo kalendar i parking,330,6.874
+samo kalendar i parking,360,6.826
+samo kalendar i parking,390,6.782
+samo kalendar i parking,420,6.699
+samo kalendar i parking,450,6.648
+samo kalendar i parking,480,6.613
+samo kalendar i parking,510,6.584
+samo kalendar i parking,540,6.628
+samo kalendar i parking,570,6.679
+samo kalendar i parking,600,6.754
+samo kalendar i parking,630,6.867
+samo kalendar i parking,660,7.039
+samo kalendar i parking,690,7.222
+samo kalendar i parking,720,7.245
+samo kalendar i parking,750,7.301
+samo kalendar i parking,780,7.227
+samo kalendar i parking,810,7.072
+samo kalendar i parking,840,6.918
+samo kalendar i parking,870,6.901
+samo kalendar i parking,900,6.957
+samo kalendar i parking,930,6.967
+bez identiteta parkinga,30,2.842
+bez identiteta parkinga,60,3.585
+bez identiteta parkinga,90,4.168
+bez identiteta parkinga,120,4.582
+bez identiteta parkinga,150,4.898
+bez identiteta parkinga,180,5.108
+bez identiteta parkinga,210,5.274
+bez identiteta parkinga,240,5.404
+bez identiteta parkinga,270,5.502
+bez identiteta parkinga,300,5.593
+bez identiteta parkinga,330,5.676
+bez identiteta parkinga,360,5.759
+bez identiteta parkinga,390,5.842
+bez identiteta parkinga,420,5.895
+bez identiteta parkinga,450,5.978
+bez identiteta parkinga,480,6.049
+bez identiteta parkinga,510,6.151
+bez identiteta parkinga,540,6.315
+bez identiteta parkinga,570,6.317
+bez identiteta parkinga,600,6.285
+bez identiteta parkinga,630,6.262
+bez identiteta parkinga,660,6.25
+bez identiteta parkinga,690,6.164
+bez identiteta parkinga,720,5.901
+bez identiteta parkinga,750,5.677
+bez identiteta parkinga,780,5.372
+bez identiteta parkinga,810,5.085
+bez identiteta parkinga,840,4.761
+bez identiteta parkinga,870,4.576
+bez identiteta parkinga,900,4.555
+bez identiteta parkinga,930,4.627
+bez praznika,30,2.853
+bez praznika,60,3.459
+bez praznika,90,3.957
+bez praznika,120,4.311
+bez praznika,150,4.573
+bez praznika,180,4.785
+bez praznika,210,4.961
+bez praznika,240,5.083
+bez praznika,270,5.176
+bez praznika,300,5.276
+bez praznika,330,5.356
+bez praznika,360,5.426
+bez praznika,390,5.511
+bez praznika,420,5.561
+bez praznika,450,5.636
+bez praznika,480,5.721
+bez praznika,510,5.815
+bez praznika,540,5.942
+bez praznika,570,5.936
+bez praznika,600,5.903
+bez praznika,630,5.865
+bez praznika,660,5.84
+bez praznika,690,5.768
+bez praznika,720,5.553
+bez praznika,750,5.353
+bez praznika,780,5.057
+bez praznika,810,4.817
+bez praznika,840,4.546
+bez praznika,870,4.387
+bez praznika,900,4.391
+bez praznika,930,4.487

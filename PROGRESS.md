@@ -149,9 +149,11 @@ Testirano u browseru (backend :8000, frontend :3000): skok na datum, otkrivanje,
 | **Preporuka, XGBoost** | **0,0%** | **0,0%** | ~0,93 km |
 | Preporuka, savršena prognoza | 0,0% | 0,0% | ~1,0 km |
 
-Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 17,5%, naivna 2,1% → 10,4% (4 h), XGBoost 1,9% → 2,4%, oracle 1,9% → 2,6%; hodanje 0,61 naspram ~0,73 km.
+Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 17,5%, naivna 2,1% → 10,4% (4 h), XGBoost 1,8% → 2,4%, oracle 1,9% → 2,6%; hodanje 0,61 naspram ~0,73 km.
 
-**Subota 11–16h** (najteži slučaj, `eval_recommender_subota_vrhunac.csv`): najbliži parking je pun u **85%** slučajeva. Preporuka spušta to na 0% (uz 14% upućivanja na P&R), a kad su dozvoljeni samo gradski parkinzi na 9%. Tih 9% ima i oracle: tada su puni svi gradski parkinzi i nema boljeg izbora.
+**Subota 11–16h** (najteži slučaj, `eval_recommender_subota_vrhunac.csv`): najbliži parking je pun u **85%** slučajeva. Preporuka spušta to na 0% (uz 14% upućivanja na P&R). Kad su dozvoljeni samo gradski parkinzi, pada na 7,5% (oracle 9%). Toliko ostaje i uz savršenu prognozu: tada su puni svi gradski parkinzi i nema boljeg izbora.
+
+*Brojevi su ažurirani 2026-10-27, posle uvođenja zamene za `y_lastweek` u koraku 5 (`backend/predictor.py`); evaluacija je ponovo pokrenuta. Menja se samo strategija „XGBoost”, za najviše 1,5 p.p.: subota, samo gradski 9,0% → 7,5%; samo gradski, polazak odmah 1,9% → 1,8%. Zaključci ostaju isti.*
 
 **Zaključci za rad:**
 1. **Preporuka radi:** rizik dolaska na pun parking pada sa 17,5% na 0–2%, uz ~120–340 m više hodanja.
@@ -203,3 +205,105 @@ Napomene o postavci:
 3. **Izbor između modela sa stablima nije presudan; presudni su ulazi (lag feature-i) i to što je model nelinearan.** Ovo je pošten zaključak za rad: XGBoost je izabran zbog najmanje ukupne greške i najbolje kratkoročne prognoze, uz ugrađenu podršku za kategorije i nedostajuće vrednosti.
 4. **Brzina nije problem ni za jedan model:** predikcija traje 2–16 µs po redu, a za 15 parkinga ispod 1 ms. Ovo je argument i za odgovor „kako bi radilo u realnom vremenu”.
 5. **Otpornost (za korak 5):** u ~3% redova bez `y_lastweek` greška XGBoost-a je otprilike dvostruka (30 min: 5,83 naspram 2,77; 4 h: 9,52 naspram 4,93). To objašnjava loš 14.10.2017 iz koraka 2.
+
+### Korak 5 — Analiza modela (`ml/analyze_model.py`) ✅
+
+Ista podela kao u koraku 4 (trening pre 1.10.2017, test 1.10.–5.12.2017, svih 31 horizonata). Delovi „doprinos”, „greške” i „nedostajući” koriste model iz aplikacije. Ablacija, dužina treninga i specijalizovani modeli treniraju nove modele sa **istim hiperparametrima**, pročitanim iz sačuvanog modela. Ponovni trening punog modela daje 4,85 umesto 4,83, jer se trenira sa 8 niti umesto 2 i menja se redosled sabiranja. Razlike ispod ~0,05 p.p. zato nisu značajne. Izlazi su u `ml/output/analiza_*.csv` i `analiza_*.png`. Ceo skript traje ~10 min, a delovi mogu i zasebno (`python ml/analyze_model.py doprinos greske ...`).
+
+**1. Doprinos ulaza (SHAP), `analiza_doprinos.png`.** Mera je prosečna |SHAP| vrednost, odnosno za koliko p.p. ulaz u proseku pomera predikciju u odnosu na prosek. Računata je iz samog XGBoost-a (`pred_contribs=True`), bez dodatne biblioteke, na 15.000 test redova po grupi horizonata.
+
+| Ulaz | do 2 h | 2–8 h | preko 8 h |
+|---|---|---|---|
+| `y_lastweek` (isti termin pre 7 dana) | 10,44 | 11,23 | 12,15 |
+| `y_yesterday` (isti termin juče) | 6,14 | 6,67 | 7,31 |
+| `hour` | 3,77 | 3,80 | 4,18 |
+| `carpark` | 3,39 | 3,76 | 3,62 |
+| `y_t` (zauzetost sada) | 4,09 | 2,52 | 2,21 |
+| `delta` | 2,00 | 1,40 | 0,96 |
+| `dow` | 1,89 | 1,96 | 2,16 |
+| `horizon_minutes` | 1,51 | 0,82 | 1,50 |
+| ostali (`y_t1`, `y_t2`, `weekend`, `capacity`, `holiday`) | < 0,6 | < 0,5 | < 0,5 |
+
+**2. Ablacija, `analiza_ablacija.png`.** Model je ponovo treniran bez grupe ulaza. Vrednosti su MAE u p.p.
+
+| Varijanta | Ukupno | 30 min | 2 h | 4 h | 8 h | 15 h |
+|---|---|---|---|---|---|---|
+| Pun model | **4,85** | **2,87** | **4,32** | **5,07** | 5,73 | 4,40 |
+| Bez trenutnog stanja (`y_t`, `y_t1`, `y_t2`, `delta`) | 5,20 | 4,93 | 5,06 | 5,19 | 5,65 | 4,12 |
+| Bez istog termina ranije (`y_yesterday`, `y_lastweek`) | 5,82 | 3,09 | 4,96 | 6,24 | 6,38 | 6,96 |
+| Samo kalendar i parking (bez svih lag ulaza) | 6,94 | 7,05 | 7,12 | 6,89 | 6,61 | 6,96 |
+| Bez identiteta parkinga (`carpark`, `capacity`) | 5,13 | 2,84 | 4,58 | 5,40 | 6,05 | 4,55 |
+| Bez praznika | 4,85 | 2,85 | 4,31 | 5,08 | 5,72 | 4,39 |
+
+**Zaključci 1+2 (SHAP i ablacija se dopunjuju):**
+- SHAP pokazuje *šta model koristi*, a ablacija *šta je nezamenljivo*. `y_lastweek` je najkorišćeniji ulaz na svim horizontima: daje „nivo” za taj parking i termin. Ipak, bez `y_lastweek`/`y_yesterday` greška na 30 min raste samo sa 2,87 na 3,09, jer tada isti podatak nosi trenutna zauzetost. Ulazi su delimično zamenljivi.
+- **Trenutno stanje je presudno za kratke horizonte.** Bez njega greška na 30 min skače sa 2,87 na 4,93. Već oko 6 h unapred prestaje da pomaže, a na 12–15 h model bez njega je čak malo bolji (4,12 naspram 4,40). To je mali šum, i jedan od znakova da jedan model za sve horizonte ima cenu (vidi tačku 6).
+- **Istorija istog termina je presudna za duge horizonte.** Bez nje greška na 15 h raste sa 4,40 na 6,96.
+- **Samo kalendar i parking** (kao stari Birmingham model iz seminarskog) daje ~7 p.p. na svim horizontima, isto kao „tipična kriva” (7,36). Bez lag ulaza model ne može bolje od proseka.
+- **Identitet parkinga skoro nije potreban** (4,85 → 5,13), jer lag ulazi već nose karakter parkinga. Ovo je važno za skalabilnost (korak 7): model bez `carpark` bi mogao da se primeni i na parking koji nije video u treningu.
+- **Praznik:** test period (oktobar–decembar 2017) nema nijedan praznik, pa uticaj ne može da se izmeri. To ostaje kao ograničenje evaluacije.
+
+**3. Greška po parkingu, tipu, dobu dana i popunjenosti, `analiza_greske.png`.**
+- Po tipu: Park & Ride 2,23 p.p. (prosečno 27% pun), grad 6,46 (47%), nepoznat tip 4,16. Gradski parkinzi su teži jer su puniji i promenljiviji.
+- Najteži parking je **CPN0009 The Forum** (10,83; na 30 min 6,20), zatim CPN0006 (8,05) i CPN0005 Castle Quarter 2 (7,78). Najlakši je C06391 (0,97; skoro uvek prazan).
+- Po dobu dana gradski parkinzi su najteži **uveče (18–21 h, do 9,5 p.p.)** i u **jutarnjem punjenju (9–10 h)**. Ovo važi i na fiksnom horizontu od 1 h (18 h: 6,7 p.p. naspram 12 h: 2,9), pa nije posledica mešanja horizonata. Prelazi (punjenje i pražnjenje) su teški, a stabilni periodi laki. Verovatan uzrok, nepotvrđen, su večernji događaji i izlasci u centru, kojih nema u podacima. Po danu je najteža nedelja (6,15), a ostali dani su 4,2–5,0.
+- Po stvarnoj popunjenosti: ispod 50% greška je 3,80, za 50–80% je 6,05, za **80–95% je 7,69** (najveća), a za ≥ 95% je 6,09. Kada je parking stvarno ≥ 95% pun, model predviđa ≥ 90% u **76%** slučajeva. Za preporuku je opseg 80–95% najrizičniji, što je argument za nelinearnu dostupnost (opciona stavka iz koraka 3).
+
+**4. Nedostajući podaci i zamena (fallback).**
+
+Prirodne rupe u testu:
+
+| Redovi | Udeo | MAE model | MAE tipična kriva |
+|---|---|---|---|
+| svi ulazi postoje | 80,2% | 4,82 | 7,44 |
+| fali `y_lastweek` | 3,3% | 8,27 | 8,56 |
+| fali `y_yesterday` | 5,5% | 2,77 | 6,38 |
+| fali `y_t1` ili `y_t2` | 12,6% | 4,94 | 7,09 |
+
+Veštačko brisanje (redovi gde sve postoji, uklanja se jedan ulaz):
+
+| Varijanta | MAE |
+|---|---|
+| ništa ne fali | 4,82 |
+| fali `y_lastweek` | 6,53 |
+| fali `y_yesterday` | 6,25 |
+| fale oba | 9,44 |
+| fale `y_t1`, `y_t2` | 6,10 |
+
+Zaključak: rupa u `y_lastweek` je sama po sebi skupa, ne samo zato što su ti dani teži. Pri veštačkom brisanju na „normalnim” danima greška raste sa 4,82 na 6,53. Tipična kriva je na prirodnim rupama samo malo lošija nego inače (8,56 naspram 7,44), a model mnogo (8,27 naspram 4,82).
+
+Zamena za `y_lastweek` koji fali (samo pri predikciji, model se ne trenira ponovo):
+
+| Zamena | Prirodne rupe | Veštački obrisano |
+|---|---|---|
+| bez zamene (NaN) | 8,27 | 6,53 |
+| **isti termin 14 dana ranije** | **5,82** | 5,06 |
+| tipična vrednost (prosek iz treninga) | 6,14 | 5,47 |
+| 14 dana, pa tipična | 5,94 | 4,99 |
+| (stvarna vrednost, gornja granica) | – | 4,82 |
+
+Vrednost od pre 14 dana postoji u 93,9% slučajeva kada `y_lastweek` fali. Na celom testu zamena smanjuje grešku sa 4,83 na **4,75**, a za demo dan **14.10.2017 sa 7,90 na 4,44**. **Uvedeno u aplikaciju:** `backend/predictor.py` (`_same_slot_last_week`, `LASTWEEK_FALLBACK_DAYS = 14`). Ako ni od pre 14 dana nema podatka, ostaje NaN kao i ranije. Lanac „14 dana, pa tipična” nije uveden: na prirodnim rupama nije bolji, a zahteva tabelu tipičnih vrednosti u backendu.
+
+U demo prikazu (`/compare`, 14.10.2017, „sada” = 10:00) greška prognoze je bez zamene i sa zamenom: CPN0005 15,22 → 7,75; CPN0007 12,87 → 7,73; CPN0009 11,65 → 7,67; CPN0017 9,18 → 1,41 p.p. Evaluacija preporuke iz koraka 3 je zbog izmene ponovo pokrenuta, a brojevi u tom odeljku su ažurirani.
+
+**5. Dužina trening skupa.** Isti model je treniran na poslednjih N pre 1.10.2017.
+
+| Trening | Redova | Ukupno | 30 min | 2 h | 8 h |
+|---|---|---|---|---|---|
+| 2 nedelje | 83.052 | 5,94 | 5,12 | 5,67 | 6,27 |
+| 1 mesec | 177.934 | 5,44 | 4,36 | 5,13 | 6,02 |
+| 3 meseca | 524.078 | 5,19 | 3,36 | 4,70 | 5,97 |
+| 6 meseci | 1.065.905 | 5,09 | 3,21 | 4,59 | 5,93 |
+| ~11 meseci (sve) | 2.007.700 | 4,85 | 2,87 | 4,32 | 5,73 |
+
+Greška monotono pada i još ne staje između 6 i 11 meseci, pa bi više podataka verovatno još pomoglo. Jedan model za sve horizonte traži više podataka od specijalizovanog. Referentni eksperiment (specijalizovan model, samo 30 min) je sa 2 nedelje imao 2,21, a jedan model sa 2 nedelje ima 5,12. Ovo je argument zašto prelazak sa Birminghama (u projektu samo 7 dana podataka, 13.–19.12.2016) na Norfolk (~13 meseci) nije bio samo kozmetički.
+
+**6. Jedan model naspram specijalizovanih** (isti test redovi, `analiza_specijalizovani.csv`):
+
+| Horizont | Specijalizovan model | Jedan model (aplikacija) |
+|---|---|---|
+| 30 min | 1,63 | 2,87 |
+| 1 h | 2,62 | 3,45 |
+| 2 h | 3,86 | 4,29 |
+
+Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća baš na najkraćem horizontu (+76% na 30 min). Jedan model kapacitet od 400 stabala dubine 6 deli na 31 horizont, a 30-min redovi su samo 1/31 treninga. Ablacija pokazuje isti efekat sa druge strane: na dugim horizontima trenutno stanje već smeta. **Moguće poboljšanje (nije urađeno):** hibrid, odnosno specijalizovani modeli za 30 min do 2 h i jedan model za ostale horizonte. Za rad je dovoljno navesti tradeoff i hibrid kao budući rad.

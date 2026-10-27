@@ -1,0 +1,12 @@
+﻿redovi,zamena,MAE_model
+prirodno fali y_lastweek,bez zamene (NaN),8.27
+prirodno fali y_lastweek,14 dana ranije,5.82
+prirodno fali y_lastweek,tipicna vrednost,6.14
+prirodno fali y_lastweek,"14 dana, pa tipicna",5.94
+vestacki obrisan y_lastweek,bez zamene (NaN),6.53
+vestacki obrisan y_lastweek,14 dana ranije,5.06
+vestacki obrisan y_lastweek,tipicna vrednost,5.47
+vestacki obrisan y_lastweek,"14 dana, pa tipicna",4.99
+vestacki obrisan y_lastweek,(stvarna vrednost - gornja granica),4.82
+ceo test,bez zamene (NaN),4.83
+ceo test,14 dana ranije,4.75
