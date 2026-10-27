@@ -307,3 +307,27 @@ Greška monotono pada i još ne staje između 6 i 11 meseci, pa bi više podatak
 | 2 h | 3,86 | 4,29 |
 
 Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća baš na najkraćem horizontu (+76% na 30 min). Jedan model kapacitet od 400 stabala dubine 6 deli na 31 horizont, a 30-min redovi su samo 1/31 treninga. Ablacija pokazuje isti efekat sa druge strane: na dugim horizontima trenutno stanje već smeta. **Moguće poboljšanje (nije urađeno):** hibrid, odnosno specijalizovani modeli za 30 min do 2 h i jedan model za ostale horizonte. Za rad je dovoljno navesti tradeoff i hibrid kao budući rad.
+
+### Korak 6 — Saobraćaj (w3) ⏸ čeka mentora
+
+Analiza (2026-10-27) je pokazala da heuristika za saobraćaj ne meri saobraćaj. Deo za vršne sate je isti za sve kandidate u istom trenutku, pa ne menja redosled. Deo za udaljenost (`min(0.35, d/10)`) je apsolutna kazna za udaljenost, koja odvraća sistem od P&R parkinga. Izmereno na istih 2000 vozača (XGBoost, polazak odmah):
+
+| Varijanta | Pun pri dolasku (samo gradski) | Na P&R (svi parkinzi) | Subota 11–16 h: na P&R / pun (gradski) |
+|---|---|---|---|
+| sada: 0.55/0.3/0.15 + heuristika | 1,8% | 2,2% | 14% / 7,5% |
+| w3 = 0, ponderi 0.6/0.4 | 3,0% | 2,9% | 15% / 11,9% |
+| w3 = 0, ponderi 0.55/0.3 | 1,6% | 8,8% | 30% / 6,7% |
+
+Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min) nisu nađeni besplatno. Za ulazne puteve (A47, A11) postoji National Highways WebTRIS. Pitanje i opcije su u `../ZA_MENTORA.md`; kod se ne menja dok mentor ne odgovori.
+
+### Korak 8 — Higijena projekta ✅
+
+- `CLAUDE.md` je prepisan za trenutni sistem (Norfolk, simulator, jedan model, evaluacija, dokumenti van repoa), uz zadržana pravila rada.
+- `README.md`:
+  - ispravljena struktura (`MASTER_PLAN.md` i `reference/` su van repoa) i dodati novi fajlovi;
+  - dodati endpointi `/simulation/reset` i `/compare`, kao i odeljak „Evaluacija i analiza” sa komandama;
+  - dodati demo režim u frontendu i izvor podataka (GitLab link);
+  - ispravljen navod o OSRM-u: utiče samo na prikaz rute, ne i na preporuku;
+  - obrazloženje za 6 parkinga bez koordinata;
+  - nova ograničenja (saobraćaj čeka mentora, evaluacija simulacijom, test bez praznika).
+- Reprodukovanost: model je u repou, pa za pokretanje aplikacije nije potreban trening. Komande iz README-a (`npm run backend`, `npm run frontend`, `python ml/...`) su proverene.

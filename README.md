@@ -5,10 +5,11 @@ fakultetu u Nišu. Pokriva ceo lanac end-to-end: **podaci → predikcija zauzeto
 pseudo real-time simulator → preporuka parkinga → prikaz na mapi**, nad realnim
 podacima o 15 parkinga u Norfolku (Norwich), ~13 meseci merenja (okt 2016 – dec 2017).
 
-Ovo poglavlje opisuje **trenutno stanje sistema** (praktičan deo master rada je
-završen). Fazu-po-fazu istoriju razvoja i sve odluke vidi u `PROGRESS.md`; pun kontekst
-i profesorove zahteve u `MASTER_PLAN.md`. Stari seminarski rad (Birmingham PoC) koji je
-ovome prethodio je zamenjen — opisan je samo kao istorija na dnu ovog fajla.
+Ovo poglavlje opisuje **trenutno stanje sistema**. Istoriju razvoja po fazama, sve
+odluke i rezultate eksperimenata vidi u `PROGRESS.md`. Zahtevi profesora su u
+`../MASTER_PLAN.md`, a preostali koraci do kraja rada u `../PLAN_ZAVRSETKA.md` (oba
+van ovog repoa, u folderu master rada). Stari seminarski rad (Birmingham PoC), koji je
+ovome prethodio, zamenjen je i opisan je samo kao istorija na dnu ovog fajla.
 
 Ključni princip: **predikcija i preporuka su odvojeni moduli**. Predikcija je ML zadatak
 (XGBoost). Preporuka je ponderisano rangiranje — namerno ne koristi neuronsku mrežu,
@@ -41,7 +42,7 @@ FastAPI (backend/main.py)  →  frontend (Next.js + Leaflet, polling na 3s)
 
 | Sloj | Tehnologija |
 |---|---|
-| Podaci + ML | Python 3.12, pandas, XGBoost, joblib |
+| Podaci + ML | Python 3.12, pandas, XGBoost, joblib; scikit-learn i matplotlib za eksperimente i grafike |
 | Backend / API | Python, FastAPI, uvicorn |
 | Frontend | Next.js (App Router), Leaflet (react-leaflet), čist SVG za grafikone (bez chart biblioteke) |
 
@@ -49,30 +50,39 @@ FastAPI (backend/main.py)  →  frontend (Next.js + Leaflet, polling na 3s)
 
 ```
 smart-parking/
-├── MASTER_PLAN.md, PROGRESS.md    # kontekst, odluke, log po fazama (koren projekta)
-├── requirements.txt, package.json # Python zavisnosti; npm precice (backend/frontend)
+├── CLAUDE.md, README.md, PROGRESS.md  # uputstvo za rad, ovaj opis, log po fazama/koracima
+├── requirements.txt, package.json     # Python zavisnosti; npm prečice (backend/frontend)
+├── run.py                             # alternativa za pokretanje backenda (python run.py)
 ├── data/
-│   ├── carparks_norfolk.json      # koordinate/ime/tip za 15 parkinga (9 potvrdjenih)
+│   ├── carparks_norfolk.json          # koordinate/ime/tip za 15 parkinga (9 potvrđenih)
 │   └── parking.csv, park_coordinates.json  # stari Birmingham PoC - vidi dno fajla
 ├── ml/
-│   ├── data_prep.py               # priprema podataka (konfigurabilno po gradu)
-│   ├── train_norfolk.py           # trening jednog modela, bilo koji horizont
-│   ├── model_norfolk.joblib       # sacuvan model (generise train_norfolk.py)
-│   └── output/                    # metrike (MAE/RMSE po horizontu, po parkingu)
+│   ├── data_prep.py                   # priprema podataka (konfigurabilno po gradu)
+│   ├── train_norfolk.py               # trening jednog modela, bilo koji horizont
+│   ├── model_norfolk.joblib           # sačuvan model (generiše train_norfolk.py)
+│   ├── eval_recommender.py            # evaluacija preporuke simulacijom vozača
+│   ├── compare_models.py              # poređenje modela i baseline-ova
+│   ├── analyze_model.py               # analiza modela (SHAP, ablacija, greške, rupe)
+│   ├── output/                        # metrike, tabele i grafici (CSV/PNG) za rad
+│   └── explore.py, train.py, model.joblib  # stari Birmingham PoC - vidi dno fajla
 ├── backend/
-│   ├── main.py                    # FastAPI app, endpointi
-│   ├── datasource.py              # DataSource / ReplaySource / LiveSource(stub)
-│   ├── simulator.py                # SimulationClock (pseudo real-time sat)
-│   ├── predictor.py                # feature-i iz apsolutnog vremena, predikcija
-│   ├── recommender.py              # ponderisano rangiranje
-│   └── parks.py                    # spisak Norfolk parkinga (koordinate + kapacitet)
-├── reference/
-│   └── norfolk_xgb_eksperiment.py  # referentni eksperiment (gornja granica tacnosti)
-└── frontend/app/
-    ├── page.tsx                    # glavna stranica - simulacija, vreme, ruta, preporuke
-    ├── ParkingMap.tsx               # Leaflet mapa, markeri, popup
-    └── Sparkline.tsx                 # mini grafik (tipicno/stvarno/prognoza)
+│   ├── main.py                        # FastAPI app, endpointi
+│   ├── datasource.py                  # DataSource / ReplaySource / LiveSource(stub)
+│   ├── simulator.py                   # SimulationClock (pseudo real-time sat)
+│   ├── predictor.py                   # feature-i iz apsolutnog vremena, predikcija
+│   ├── recommender.py                 # ponderisano rangiranje
+│   └── parks.py                       # spisak Norfolk parkinga (koordinate + kapacitet)
+├── frontend/app/
+│   ├── page.tsx                       # glavna stranica - simulacija, vreme, ruta, preporuke, demo
+│   ├── ParkingMap.tsx                 # Leaflet mapa, markeri, popup
+│   ├── Sparkline.tsx                  # mini grafik (tipično/stvarno/prognoza)
+│   └── CompareChart.tsx               # grafik „predikcija vs stvarnost” za ceo dan
+└── docs/seminarski-rad/               # seminarski rad (prethodnik, istorija)
 ```
+
+Van repoa, u folderu master rada (`../`): `MASTER_PLAN.md`, `PLAN_ZAVRSETKA.md`,
+`data/raw/*.csv` (podaci) i `reference/norfolk_xgb_eksperiment.py` (referentni
+eksperiment sa posebnim modelom po horizontu).
 
 ## Podaci
 
@@ -80,9 +90,15 @@ Norfolk (Norwich), UK Open Government Licence (Stolfi, Alba, Yao 2020) - CSV je 
 repoa, u `../data/raw/Norfolk.csv` (deljen sa ostatkom master projekta). 15 upotrebljivih
 parkinga (3 isključena, zaglavljeni senzori), period 26.10.2016–5.12.2017, merenja na
 ~10-15 min između 08:00 i 23:00, resample-ovano na 30-min mrežu. Detalji i kriterijumi
-čišćenja u `MASTER_PLAN.md`, poglavlje 3.
+čišćenja su u `../MASTER_PLAN.md`, poglavlje 3. Izvor CSV-a:
+https://gitlab.com/dhstolfi/predicting-car-park-occupancy-rates-in-smart-cities (fajl
+`Norfolk.csv` staviti u `../data/raw/`).
 
 ## Instalacija
+
+Potrebni su Python 3.12+, Node.js i `../data/raw/Norfolk.csv` (vidi „Podaci”).
+Istrenirani model (`ml/model_norfolk.joblib`) je u repou, pa trening nije potreban
+za pokretanje aplikacije.
 
 ```bash
 cd smart-parking
@@ -105,7 +121,8 @@ npm run frontend
 ```
 
 Otvoriti `http://localhost:3000`. Simulacija kreće pauzirana na 1.10.2017 08:00 (početak
-test perioda) - klikni **Start** u panelu "Simulacija".
+test perioda). Klikni **Start** u panelu „Simulacija” ili preko „Skok na datum (test
+period)” izaberi bilo koji dan iz test perioda.
 
 ## Model (`ml/`)
 
@@ -127,11 +144,35 @@ Rezultati (MAE u p.p., test 1.10–5.12.2017):
 | 1 sat | 3.45 | 5.55 |
 | 2 sata | 4.29 | 6.97 |
 
-Ovo je nešto slabije od specijalizovanog modela po horizontu (cena fleksibilnosti za
-bilo koji horizont) - `reference/norfolk_xgb_eksperiment.py` pokazuje gornju granicu
-tačnosti (zaseban model po horizontu: 1.63 / 2.61 / 3.85 za ista tri horizonta). Zašto
-je dizajn promenjen sa 3 fiksna horizonta na kontinualan opseg: vidi `PROGRESS.md`,
-sekcija "Redizajn - proizvoljan horizont".
+Ovo je nešto slabije od specijalizovanog modela po horizontu, što je cena
+fleksibilnosti za bilo koji horizont. `../reference/norfolk_xgb_eksperiment.py`, kao i
+`ml/analyze_model.py specijalizovani`, pokazuje gornju granicu tačnosti: zaseban model
+po horizontu daje 1.63 / 2.62 / 3.86 za ista tri horizonta. Zašto je dizajn promenjen sa
+3 fiksna horizonta na kontinualan opseg: vidi `PROGRESS.md`, sekcija „Redizajn -
+proizvoljan horizont”.
+
+Ako nema merenja u istom terminu pre 7 dana (`y_lastweek`), `backend/predictor.py`
+koristi isti termin 14 dana ranije, bez ponovnog treniranja. Vidi „Evaluacija i
+analiza” ispod.
+
+## Evaluacija i analiza (`ml/`)
+
+Svi eksperimenti koriste istu hronološku podelu (trening pre 1.10.2017, test
+1.10.–5.12.2017). Rezultati (CSV i PNG) idu u `ml/output/`, a brojevi i zaključci u
+`PROGRESS.md` (koraci 3–5).
+
+```bash
+python ml/eval_recommender.py   # ~7 min: preporuka na 2000 simuliranih vozača (najbliži / naivna / XGBoost / savršena prognoza)
+python ml/compare_models.py     # ~3 min: XGBoost naspram Random Forest, HistGradientBoosting, Ridge i baseline-ova
+python ml/analyze_model.py      # ~10 min: SHAP, ablacija, greška po parkingu/dobu dana, nedostajući podaci, dužina treninga
+```
+
+Ukratko:
+- Bez sistema (najbliži parking) vozač stiže na pun parking u 17,5% slučajeva. Sa
+  preporukom je to 0% (svi parkinzi), odnosno 1,8% (samo gradski).
+- XGBoost ima najmanju grešku: MAE 4,83 p.p. ukupno, 2,87 na 30 min.
+- Za kratke prognoze presudna je trenutna zauzetost, a za duge stanje u isto vreme
+  juče i pre nedelju dana.
 
 ## Backend / API (`backend/`)
 
@@ -150,6 +191,8 @@ se trenira samo na podacima pre 1.10.2017; simulacija ide kroz test period.
 | `GET /state?park_id=&target_time=` | Trenutna zauzetost; sa `target_time` (ISO) i zauzetost za to vreme - izmereno ako je prošlost/sadašnjost, predikcija (+MAE) ako je budućnost (do ~15.5h, posle toga clamp) |
 | `GET /history?park_id=` | Tipična kriva za dan u nedelji (iz treninga) + stvarni tok danas (za sparkline) |
 | `GET /recommend?origin_lat=&origin_lng=&dest_lat=&dest_lng=&top_n=&radius=&departure_time=` | Rangirana lista preporuka; `departure_time` opcioni (podrazumevano "sada") |
+| `POST /simulation/reset?start_time=` | Demo: skok na bilo koje vreme u test periodu (zaokruženo na 30 min); sat se pauzira |
+| `GET /compare?park_id=&date=&from_time=` | Demo: za dan iz test perioda vraća stvarnu zauzetost, prognozu iz `from_time` do kraja dana, prognozu „sat unapred” i tipičnu krivu, uz MAE |
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/simulation/start?speed=100"
@@ -157,10 +200,12 @@ curl "http://127.0.0.1:8000/state?target_time=2017-10-10T17:00:00"
 ```
 
 **Preporuka** (`recommender.py`): `skor = w1·dostupnost + w2·blizina − w3·saobraćaj`
-(w1=0.55, w2=0.3, w3=0.15, konstante na vrhu fajla). `saobraćaj` je i dalje jednostavna
-heuristika (peak-sat + blizina), ne pravi podatak - nema saobraćajnih podataka u
-datasetu. Dolazak (i time horizont predikcije) se računa od `departure_time` ako je dat,
-inače od simuliranog "sada".
+(w1=0.55, w2=0.3, w3=0.15, konstante na vrhu fajla). `blizina` meri hodanje od parkinga
+do destinacije. Vreme dolaska se procenjuje po pravoj liniji od polaska pri 30 km/h, a
+računa se od `departure_time` ako je dat, inače od simuliranog „sada”. Za to vreme se
+pravi predikcija. `saobraćaj` je jednostavna heuristika (vršni sat + udaljenost), ne
+pravi podatak, jer dataset nema saobraćajne podatke. Analiza je pokazala da ona zapravo
+ne meri saobraćaj, pa odluka čeka mentora (vidi „Ograničenja”).
 
 ## Frontend (`frontend/app/`)
 
@@ -178,16 +223,36 @@ inače od simuliranog "sada".
   rutu; panel "Parkinzi uz rutu" i "Top preporuke za cilj" sa desne strane.
 - Klik na mapu kad je ruta već izabrana ne briše je odmah - traži potvrdu (modal), da
   slučajan klik u vozilu ne izgubi već izračunatu rutu.
+- **Demo režim** (za odbranu):
+  - **„Skok na datum (test period)”** postavlja simulaciju na bilo koji dan i sat iz
+    perioda koji model nije video.
+  - Kartica **„Predikcija vs stvarnost”** za izabrani parking crta prognozu iz „sada”
+    do kraja dana i tipičnu krivu. Stvarni tok posle „sada” se prikazuje tek na
+    „Otkrij stvarnost”, uz MAE.
 
 ## Ograničenja (trenutna, svesna)
 
-- **6 od 15 parkinga nema potvrđene koordinate** (CPN0003/6/8/11/13, C06391) - kandidati
-  iz starih zapisa imaju drugačiji kapacitet nego dataset, pa po pravilu "ne izmišljati
-  koordinate" ostaju bez pina na mapi (i dalje ulaze u trening modela).
+- **6 od 15 parkinga nema potvrđene koordinate** (CPN0003/6/8/11/13, C06391). Dataset
+  sadrži samo šifre (`CPN00xx`) iz Norfolk County Council live feeda, bez imena i
+  lokacija. Uparivanje sa današnjim spiskom parkinga je urađeno poređenjem kapaciteta
+  (`../MASTER_PLAN.md`, poglavlje 5): 9 parkinga je potvrđeno, a za preostalih 6 današnji kandidati (St
+  Andrew's, John Lewis, Riverside, St Giles, St Stephens, Airport P&R) imaju kapacitet
+  koji se ne poklapa sa podacima iz 2017. Po pravilu „ne izmišljati koordinate” tih 6
+  nema pin na mapi i ne ulaze u preporuku, jer bez lokacije nema udaljenosti. I dalje
+  ulaze u trening i evaluaciju modela (svih 15), pa su metrike predikcije na svim
+  parkinzima.
 - **Saobraćaj u skoru preporuke je heuristika**, ne pravi podatak (dataset ga nema).
-- **OSRM (javni demo ruting server)** ume da napravi netačnu/zaobilaznu rutu u centru
-  grada (zabrane skretanja koje ne poznaje) - uočeno i potvrđeno poređenjem sa Google
-  Maps za isti par tačaka; utiče na prikaz rute i na procenu vremena dolaska.
+  Deo za vršne sate ne menja redosled preporuka, a deo za udaljenost je zapravo dodatna
+  kazna za udaljenost. Da li saobraćaj ostaje budući rad, i šta tada sa w3, čeka odgovor
+  mentora (`../ZA_MENTORA.md`, `../PLAN_ZAVRSETKA.md`, korak 6).
+- **Evaluacija preporuke je simulacija na istorijskim podacima** (izmišljeni vozači,
+  stvarna zauzetost pri dolasku). Nedelja je izostavljena (P&R ne rade), a vreme
+  dolaska je procena po pravoj liniji.
+- **Test period nema nijedan praznik**, pa uticaj `holiday` ulaza nije mogao da se izmeri.
+- **OSRM (javni demo ruting server)** ume da napravi netačnu ili zaobilaznu rutu u
+  centru grada, jer ne zna sve zabrane skretanja. To je uočeno i potvrđeno poređenjem
+  sa Google Maps za isti par tačaka. Utiče samo na prikaz rute i „Vožnja” (km/min) u
+  panelu; preporuka koristi sopstvenu procenu vremena dolaska.
 - **Horizont predikcije je ograničen na ~15.5h unapred** (van toga se vrednost clamp-uje
   na maksimum, uz `horizon_clamped: true` u odgovoru).
 - Skalabilnost na ostale gradove (Birmingham/Glasgow/Nottingham iz istog dataset-a) je

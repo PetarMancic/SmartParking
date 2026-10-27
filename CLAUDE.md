@@ -1,146 +1,126 @@
-# CLAUDE.md — Smart Parking Recommendation (Proof of Concept)
+# CLAUDE.md — Smart Parking (master rad, Norfolk)
 
 ## Šta je ovo
 
-Proof-of-concept sistem za **preporuku parking mesta u pametnim gradovima** na osnovu
-analize podataka o zauzetosti parkinga. Radi se o praktičnom delu seminarskog rada koji
-je uvod u master rad. **Cilj nije potpun proizvod** — cilj je da ceo lanac (podaci →
-predikcija → preporuka → prikaz) radi end-to-end na minimalnom nivou.
+Praktični deo **master rada** (Elektronski fakultet u Nišu, mentor prof. Petar
+Rajković): sistem za **preporuku parking mesta u pametnim gradovima** na osnovu
+predikcije zauzetosti, nad realnim podacima za 15 parkinga u Norfolku (Norwich, UK),
+~13 meseci merenja. Projekat je počeo kao seminarski proof-of-concept na Birmingham
+podacima. Taj deo je zamenjen i opisan je samo kao istorija na dnu `README.md`.
 
-Sistem obavlja tri stvari:
-1. **Praćenje popunjenosti** — učitava i obrađuje podatke o zauzetosti parkinga kroz vreme.
-2. **Predviđanje dostupnosti** — ML model procenjuje buduću zauzetost parkinga.
-3. **Preporuka lokacije** — rangira parkinge kombinujući predviđenu dostupnost, blizinu
-   destinaciji i (opciono) saobraćaj.
+Ceo lanac radi end-to-end: **podaci → predikcija → pseudo real-time simulator →
+preporuka → mapa**. Sistem radi tri stvari:
+1. **Praćenje popunjenosti.** Simulator (`ReplaySource` + `SimulationClock`) pušta
+   istorijske podatke hronološki, kao da stižu uživo, i nikad ne otkriva budućnost.
+2. **Predviđanje dostupnosti.** Jedan XGBoost model predviđa zauzetost za bilo koji
+   horizont od 30 min do 15,5 h (horizont je ulazna promenljiva).
+3. **Preporuka lokacije.** Parkinzi se rangiraju po ponderisanom skoru (predviđena
+   dostupnost pri dolasku, blizina destinaciji, saobraćaj).
 
-**Ključni princip: predikcija i preporuka su ODVOJENI moduli.** Predikcija je ML zadatak.
-Preporuka je rangiranje po ponderisanom skoru — NE koristi neuronsku mrežu.
+**Ključni princip: predikcija i preporuka su ODVOJENI moduli.** Predikcija je ML
+zadatak. Preporuka je rangiranje po ponderisanom skoru i NE koristi neuronsku mrežu.
 
-## Prioriteti (pročitaj pre nego što kreneš)
+## Dokumenti (pročitaj pre rada)
 
-- Ovo je **proof of concept**, ne produkcija. Bez suvišnih edge case-ova, bez
-  autentifikacije, bez baze podataka osim ako zaista zatreba. Fokus na tome da radi.
-- **Gradi fazu po fazu (vidi dole). Ne generiši ceo sistem odjednom.** Na kraju svake
-  faze stani, potvrdi da radi, tek onda nastavi.
-- Targetirane, minimalne izmene. Kada nešto menjaš, ne diraj delove koji već rade.
-- Kod treba da bude čitljiv i objašnjiv — ovo ide u seminarski rad, pa je razumljivost
-  važnija od „pametnih" rešenja.
+| Fajl | Šta je u njemu |
+|---|---|
+| `../MASTER_PLAN.md` | zahtevi profesora, podaci, model, koordinate, mapa (van repoa) |
+| `../PLAN_ZAVRSETKA.md` | preostali koraci do kraja rada, sa štikliranjem (van repoa) |
+| `../ZA_MENTORA.md` | otvorena pitanja za mentora (npr. saobraćaj) (van repoa) |
+| `PROGRESS.md` | log urađenog po fazama i koracima, svi rezultati eksperimenata |
+| `README.md` | arhitektura, instalacija, pokretanje, API, ograničenja |
+| `frontend/AGENTS.md` | Next.js u ovom projektu ima breaking changes; pročitati pre izmena frontenda |
+
+## Način rada
+
+- **Korak po korak iz `../PLAN_ZAVRSETKA.md`.** Na kraju koraka: provera da radi, upis
+  u `PROGRESS.md`, commit na granu `master-rad`, štikliranje u planu. Stani i pokaži
+  rezultat; sledeći korak tek uz potvrdu. Ne raditi više koraka u jednom naletu.
+- Targetirane, minimalne izmene. Ne diraj delove koji već rade.
+- Kod treba da bude čitljiv i objašnjiv, jer ide u master rad.
+- **Pošteno merenje:**
+  - podela je uvek hronološka, nikad nasumična;
+  - model se trenira samo na podacima pre 1.10.2017;
+  - simulator i predikcija vide samo prošlost.
+
+  Kada se neki navod u radu pokaže netačnim, ispravi ga u `PROGRESS.md`, ne briši ga
+  tiho.
 
 ## Tehnološki stack
 
 | Sloj | Tehnologija |
 |---|---|
-| Podaci + ML | Python 3.11+, pandas, scikit-learn, XGBoost, joblib |
+| Podaci + ML | Python 3.12, pandas, XGBoost, scikit-learn (poređenje modela), joblib, matplotlib (grafici za rad) |
 | Backend / API | Python, FastAPI, uvicorn |
-| Frontend | Next.js (App Router), Leaflet (react-leaflet) za mapu |
+| Frontend | Next.js (App Router), Leaflet (react-leaflet), čist SVG za grafikone |
 
-Backend i frontend komuniciraju preko REST (JSON). Backend servira i predikciju i preporuku.
+Backend i frontend komuniciraju preko REST (JSON).
 
-## Struktura projekta (ciljna)
+## Struktura projekta
 
 ```
 smart-parking/
-├── CLAUDE.md
+├── CLAUDE.md, README.md, PROGRESS.md
+├── requirements.txt, package.json     # Python zavisnosti; npm prečice (backend/frontend)
 ├── data/
-│   └── parking.csv              # dataset (Birmingham) — već postoji, NE menjati
+│   ├── carparks_norfolk.json          # koordinate/ime/tip za 15 parkinga (9 potvrđenih)
+│   └── parking.csv, park_coordinates.json   # stari Birmingham PoC (istorija)
 ├── ml/
-│   ├── explore.py              # EDA: vizuelizacija dnevne krive punjenja
-│   ├── train.py                # trening XGBoost modela + evaluacija
-│   └── model.joblib            # sačuvan istrenirani model (generiše train.py)
+│   ├── data_prep.py                   # priprema podataka (konfigurabilno po gradu)
+│   ├── train_norfolk.py               # trening jednog modela → model_norfolk.joblib
+│   ├── eval_recommender.py            # korak 3: evaluacija preporuke (simulirani vozači)
+│   ├── compare_models.py              # korak 4: poređenje modela i baseline-ova
+│   ├── analyze_model.py               # korak 5: SHAP, ablacija, greške, nedostajući podaci
+│   ├── output/                        # CSV i PNG rezultati (idu u rad)
+│   └── explore.py, train.py, model.joblib   # stari Birmingham PoC (istorija)
 ├── backend/
-│   ├── main.py                 # FastAPI app, endpointi
-│   ├── predictor.py            # učitava model.joblib, daje predikciju
-│   ├── recommender.py          # ponderisano rangiranje parkinga
-│   └── parks.py                # koordinate parkinga (za mapu i udaljenost)
-├── frontend/                   # Next.js app
-│   └── ...
-└── README.md
+│   ├── main.py                        # FastAPI app, endpointi
+│   ├── datasource.py                  # DataSource / ReplaySource / LiveSource (stub)
+│   ├── simulator.py                   # SimulationClock (pseudo real-time sat)
+│   ├── predictor.py                   # feature-i iz apsolutnog vremena, predikcija
+│   ├── recommender.py                 # ponderisano rangiranje
+│   └── parks.py                       # spisak parkinga (kapacitet iz CSV-a, koordinate iz JSON-a)
+├── frontend/app/                      # page.tsx, ParkingMap.tsx, Sparkline.tsx, CompareChart.tsx
+└── docs/seminarski-rad/               # seminarski rad (prethodnik, istorija)
 ```
 
-## Dataset
+## Podaci
 
-Fajl: `data/parking.csv` (realni senzorski podaci, Parking Birmingham / UCI).
-**Postoji već u projektu — koristi ga, ne generiši sintetičke podatke.**
+- `../data/raw/Norfolk.csv` (van repoa, deljen sa ostatkom master projekta). **Koristi
+  ga; ne generiši sintetičke podatke.** Izvor: Stolfi, Alba, Yao (2020), UK Open
+  Government Licence (link u `../MASTER_PLAN.md`, poglavlje 3).
+- Kolone: `SystemCodeNumber` (čitati kao string), `Capacity`, `Occupancy`, `LastUpdated`.
+- Upotrebljivo je 15 parkinga (isključeni `CPN0001`, `CPN0002`, `CPN0010`). Period je
+  26.10.2016 – 5.12.2017, merenja 08:00–23:00.
+- Priprema: `rate = clip(Occupancy/Capacity, 0, 1)`, resample na pravilnu mrežu od
+  30 min. Rupe se ne popunjavaju.
+- Trening je pre 1.10.2017, a test 1.10.–5.12.2017 (`CITY_CONFIGS` u `ml/data_prep.py`).
+- Koordinate su u `data/carparks_norfolk.json`: 9 od 15 parkinga je potvrđeno.
+  **Ne izmišljati koordinate.** Nepotvrđeni parkinzi ulaze u model, ali ne i na mapu i
+  u preporuku (obrazloženje u `README.md`).
 
-Kolone (tačno ove):
+## Model, preporuka, evaluacija (sažetak; brojevi u `PROGRESS.md`)
 
-| Kolona | Opis |
-|---|---|
-| `SystemCodeNumber` | ID parkinga (npr. `BHMBCCMKT01`, `Broad Street`), 29 lokacija |
-| `Capacity` | kapacitet parkinga (raspon ~220–4675) |
-| `Occupancy` | broj zauzetih mesta u tom trenutku |
-| `LastUpdated` | timestamp merenja (npr. `2016-12-13 08:02:51`), ~svakih 30 min |
-| `OccupancyRate` | stepen popunjenosti u procentima (0–100) — **ovo je ciljna promenljiva** |
-| `Date` | datum (već izdvojen) |
-| `Time` | vreme (već izdvojeno) |
-| `DayOfWeek` | dan u nedelji (`Mon`..`Sun`, već izdvojen) |
-
-Napomene o podacima:
-- Merenja su otprilike svakih 30 min, u periodu ~08:00–16:30.
-- Podaci pokazuju jasnu **dnevnu krivu punjenja** (jutro nisko, sredina dana visoko).
-- Dataset NEMA podatke o saobraćaju ni koordinate parkinga — to se dodaje u kodu
-  (`parks.py`) ili simulira.
-
-## FAZE — gradi ovim redom, stani na kraju svake
-
-### Faza 1 — Priprema podataka i EDA (`ml/explore.py`)
-- Učitaj `data/parking.csv`, parsiraj `LastUpdated` u datetime.
-- Izvuci feature-e: sat u danu, minut, dan u nedelji, radni dan/vikend.
-- Vizuelizuj dnevnu krivu punjenja za nekoliko parkinga (matplotlib), sačuvaj kao slike.
-- **Gotovo kada:** skripta se izvrši, ispiše osnovnu statistiku i sačuva grafik dnevnog
-  obrasca. Stani i pokaži rezultat.
-
-### Faza 2 — Model za predikciju (`ml/train.py`)
-- Jedan model: **XGBoost regresija**, target = `OccupancyRate`.
-- Feature-i: sat, minut, dan u nedelji (one-hot ili ordinal), ID parkinga (enkodovan),
-  `Capacity`. Opciono: lag vrednosti zauzetosti.
-- Podeli podatke na train/test (može hronološki — poslednji deo za test).
-- Evaluiraj: **RMSE i MAE**, ispiši ih. Dodaj i baseline (npr. prosek) za poređenje.
-- Sačuvaj model u `ml/model.joblib`.
-- **Gotovo kada:** model se istrenira, evaluacija se ispiše, `model.joblib` postoji.
-  Stani i pokaži metrike.
-
-### Faza 3 — Backend / API (`backend/`)
-- FastAPI app sa endpointima:
-  - `GET /parks` — lista parkinga sa koordinatama i kapacitetom.
-  - `GET /predict?park_id=...&hour=...&day=...` — predviđena zauzetost za dati parking/vreme.
-  - `GET /recommend?dest_lat=...&dest_lng=...&hour=...&day=...` — rangirana lista
-    preporučenih parkinga.
-- `predictor.py` učitava `model.joblib` pri startu.
-- `parks.py` drži koordinate parkinga (može ručno dodeljene približne koordinate u
-  Birmingemu, ili fiktivne za demo — dokumentuj koje je).
-- **Gotovo kada:** `uvicorn` pokrene server, svaki endpoint vraća smislen JSON. Stani i
-  pokaži primer odgovora.
-
-### Faza 4 — Modul za preporuku (`backend/recommender.py`)
-Rangiranje po ponderisanom skoru (NE neuronska mreža):
-
-```
-skor = w1 * predvidjena_dostupnost + w2 * blizina_destinaciji - w3 * saobracaj
-```
-
-- `predvidjena_dostupnost` = 1 − (OccupancyRate/100) iz modela.
-- `blizina_destinaciji` = normalizovana (obrnuta) udaljenost parkinga od destinacije.
-- `saobracaj` = nije u datasetu → za sada konstanta/0 ili simulirana vrednost; ostavi
-  jasan TODO i komentar da se u master radu dodaje realni saobraćaj.
-- Ponderi w1, w2, w3 = konstante na vrhu fajla, lako izmenljive.
-- Vrati top N (npr. 5) parkinga sortiranih po skoru.
-- **Gotovo kada:** `/recommend` vraća rangiranu listu sa skorom i objašnjenjem
-  komponenti. Stani i pokaži.
-
-### Faza 5 — Frontend (`frontend/`, Next.js)
-Minimalno, bez edge case-ova:
-- Mapa (Leaflet) sa markerima parkinga.
-- Polje/dugme za izbor destinacije (klik na mapu ILI prost input).
-- Poziva `/recommend`, prikazuje top parkinge (markeri + lista sa procenjenom
-  dostupnošću).
-- **Gotovo kada:** aplikacija se pokrene, klik na destinaciju prikaže preporučene
-  parkinge na mapi. Stani i pokaži.
+- **Model:** `y_t, y_t1, y_t2, delta, y_yesterday, y_lastweek, hour, dow, weekend,
+  holiday, carpark, capacity, horizon_minutes`. Greška je MAE 4,83 p.p. ukupno, a
+  2,87 na 30 min. Kad `y_lastweek` fali, `backend/predictor.py` uzima isti termin
+  14 dana ranije.
+- **Preporuka:** `skor = w1·dostupnost + w2·blizina_destinaciji − w3·saobraćaj`
+  (`backend/recommender.py`). Ponderi su konstante na vrhu fajla (0.55/0.3/0.15).
+  Dostupnost se računa za procenjeno vreme dolaska. Bodovanje je u čistoj funkciji
+  `score_candidates()`, koju koriste i API i evaluacija.
+- **Saobraćaj (w3):** dataset ga nema. Trenutna heuristika ne meri saobraćaj (vidi
+  `../ZA_MENTORA.md`, 3.1). Odluka čeka mentora (korak 6), pa do tada ne menjati.
+- **Evaluacija:** `ml/eval_recommender.py` (~7 min), `ml/compare_models.py` (~3 min),
+  `ml/analyze_model.py` (~10 min). Izlazi su u `ml/output/`. Posle izmene prediktora
+  ili preporuke ponovo pokrenuti evaluaciju i ažurirati brojeve u `PROGRESS.md`.
 
 ## Šta NE raditi
 
-- Ne generisati sintetičke podatke — koristi `data/parking.csv`.
-- Ne koristiti CNN — pogrešan alat za tabelarne podatke. (Za master: LSTM/GRU poređenje.)
-- Ne dodavati bazu, auth, Docker, testove osim ako se izričito traži.
-- Ne raditi sve faze u jednom naletu.
-- Ne komplikovati frontend — minimalni UI je namerno.
+- Ne generisati sintetičke podatke i ne izmišljati koordinate.
+- Ne koristiti CNN, jer je pogrešan alat za tabelarne podatke. LSTM/GRU dolazi u obzir
+  samo kao opciono poređenje.
+- Ne dodavati bazu, auth, Docker ni testove, osim ako se izričito traži.
+- Ne raditi više koraka plana u jednom naletu.
+- Ne komplikovati frontend; minimalni UI je namerno izabran.
+- Ne raditi na `main` grani; rad ide na `master-rad`.
