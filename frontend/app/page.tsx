@@ -585,8 +585,9 @@ export default function Home() {
       </header>
 
       <main className="flex w-full flex-1 flex-col gap-4 px-4 py-4 lg:px-6 lg:py-5">
-        {/* Kontrole i ruta: na sirokom ekranu jedna pored druge, da mapa dobije visinu. */}
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        {/* Kontrole i ruta: na sirokom ekranu jedna pored druge, da mapa dobije visinu.
+            Na mobilnom (order) mapa ide odmah ispod headera, pa ruta, pa kontrole. */}
+        <div className="order-2 grid gap-4 lg:order-none xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
           <Card>
             <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.8fr)]">
               <div>
@@ -663,6 +664,7 @@ export default function Home() {
           </Card>
 
           <Card
+            className="order-first xl:order-none"
             title="Ruta"
             icon={Route}
             subtitle="Klikni na mapu da odabereš početnu tačku i destinaciju. Prva tačka je start, druga je cilj."
@@ -724,7 +726,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-card border border-border bg-surface shadow-xs lg:h-[calc(100vh-7rem)] lg:min-h-[560px]">
+        <div className="relative order-1 h-[68vh] min-h-[420px] overflow-hidden lg:order-none rounded-card border border-border bg-surface shadow-xs lg:h-[calc(100vh-7rem)] lg:min-h-[560px]">
           <ParkingMap
             parks={parks}
             parkStates={parkStates}
@@ -753,12 +755,16 @@ export default function Home() {
               </span>
             </div>
           )}
-          {destination && (recommendationLoading || recommendations.length > 0) && (
+          {destination && (
             <div className="absolute bottom-8 left-1/2 z-[1000] w-[min(92%,460px)] -translate-x-1/2 sm:bottom-auto sm:top-3 sm:w-[min(56%,460px)]">
               <div className="flex items-center gap-3 rounded-xl border border-border bg-surface/95 p-2.5 pl-3 shadow-lg backdrop-blur">
                 {recommendationLoading ? (
                   <span className="flex items-center gap-2 py-1.5 text-sm text-ink-muted">
                     <LoaderCircle className="size-4 animate-spin" aria-hidden /> Računam preporuke…
+                  </span>
+                ) : recommendations.length === 0 ? (
+                  <span className="flex items-center gap-2 py-1.5 text-sm text-ink-muted">
+                    <SearchX className="size-4 shrink-0" aria-hidden /> Nema parkinga u trenutnom skupu
                   </span>
                 ) : (
                   <>
@@ -783,10 +789,10 @@ export default function Home() {
         </div>
 
         {/* Ispod mape: preporuke levo, parkinzi uz rutu i poredjenje desno. */}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="order-3 grid items-start gap-4 lg:order-none lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <Card
             id="preporuke"
-            className="scroll-mt-24"
+            className="scroll-mt-4 lg:scroll-mt-24"
             title="Top preporuke za cilj"
             icon={Sparkles}
             subtitle="Dostupnost pri dolasku, blizina cilju, saobraćaj"

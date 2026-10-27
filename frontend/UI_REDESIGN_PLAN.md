@@ -352,3 +352,10 @@ Odluke: Bootstrap je uklonjen, rad je na grani `ui-redesign`, bez dark mode-a. T
 - Hint „Klikni na mapu…“ je na desktopu na vrhu mape i prikazuje se tek kad se parkinzi učitaju.
 - Header i footer su preko cele širine.
 - Provereno u Chrome-u (1531 px): start → cilj → kartica #1 na mapi → „Sve preporuke“ skroluje do liste. Build je OK. Lint daje iste 4 stare greške.
+
+### Dopuna: mobilni prikaz posle izmene rasporeda (2026-10-27)
+
+- Na mobilnom je mapa bila tek na ~860 px, ispod dve kartice kontrola. Sada je redosled na mobilnom (CSS `order`, bez izmene markupa): header → (greška) → **mapa** → ruta → kontrole → preporuke i ostalo. Desktop je isti kao pre.
+- Kartica na mapi prikazuje i prazno stanje „Nema parkinga u trenutnom skupu“ (npr. noću, kad nema očitavanja), pa korisnik na mapi vidi da nema preporuka.
+- Skok „Sve preporuke“ na mobilnom koristi manji `scroll-mt` (header tamo nije sticky).
+- Provereno u iframe-u od 390 px: nema horizontalnog scroll-a, mapa počinje odmah ispod headera, start → cilj → kartica #1 na dnu mape → „Sve preporuke“ skroluje do liste, a sklopiva legenda se otvara. Za test je simulacija pomerena na 18.11.2017 10:00 i ponovo pokrenuta.
