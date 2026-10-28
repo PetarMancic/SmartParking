@@ -36,6 +36,11 @@ W3_TRAFFIC = 0.15
 
 TOP_N_DEFAULT = 5
 
+# Tipovi parkinga koji se preporucuju vozacu koji ide u grad. "ostalo" (B&Q
+# Boundary Road - parking prodavnice za kupce, 3,6 km od centra, bez autobusa
+# do centra) prikazuje se na mapi i ulazi u model, ali se ne preporucuje.
+RECOMMENDABLE_TYPES = {"grad", "Park & Ride"}
+
 # Nema ruting API-ja na backendu (frontend to radi preko OSRM-a za prikaz
 # rute) - gruba procena vremena dolaska samo da se izabere horizont predikcije.
 ASSUMED_DRIVE_SPEED_KMH = 30.0
@@ -84,6 +89,8 @@ def recommend_parks(
     for park in all_parks:
         if park["lat"] is None or park["lng"] is None:
             continue  # nepotvrdjena lokacija - ne izmisljamo koordinate za preporuku
+        if park["type"] not in RECOMMENDABLE_TYPES:
+            continue
 
         distance_to_origin_km = _haversine_km(origin_lat, origin_lng, park["lat"], park["lng"])
         distance_to_destination_km = _haversine_km(dest_lat, dest_lng, park["lat"], park["lng"])

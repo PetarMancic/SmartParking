@@ -1,16 +1,16 @@
 ﻿carpark,naziv,tip,MAE,prosecna_zauzetost_pct,n,MAE_30min
 CPN0009,The Forum,grad,10.83,54.41,33547,6.2
-CPN0006,,nepoznat,8.05,61.45,32903,4.24
+CPN0006,St Giles,grad,8.05,61.45,32903,4.24
 CPN0005,Castle Quarter 2,grad,7.78,65.18,32903,4.9
-CPN0003,,nepoznat,5.68,45.47,14646,3.52
+CPN0003,John Lewis,grad,5.68,45.47,14646,3.52
 CPN0017,Chantry Place (Chapelfield),grad,5.31,48.15,29489,3.12
-CPN0008,,nepoznat,4.43,69.75,32903,2.39
+CPN0008,St Andrew's,grad,4.43,69.75,32903,2.39
 CPN0004,Castle Quarter 1,grad,4.2,38.53,32903,2.71
 CPN0007,Rose Lane,grad,3.99,31.12,32929,2.41
 CPN0016,Thickthorn Park & Ride,Park & Ride,2.82,34.11,21588,2.13
-CPN0011,,nepoznat,2.75,30.25,20385,2.03
-CPN0013,,nepoznat,2.42,29.51,14414,1.84
+CPN0011,Airport Park & Ride,Park & Ride,2.75,30.25,20385,2.03
+CPN0013,Postwick Park & Ride,Park & Ride,2.42,29.51,14414,1.84
 CPN0012,Sprowston Park & Ride,Park & Ride,2.03,23.8,14790,1.62
 CPN0014,Costessey Park & Ride,Park & Ride,1.92,26.01,12222,1.67
 CPN0015,Harford Park & Ride,Park & Ride,1.82,22.71,14790,1.46
-C06391,,nepoznat,0.97,19.68,32903,0.85
+C06391,B&Q Boundary Road,ostalo,0.97,19.68,32903,0.85

@@ -129,8 +129,8 @@ def mae_pp(y_true, y_pred) -> float:
 
 
 def park_types() -> dict[str, str]:
-    """Tip parkinga iz data/carparks_norfolk.json; neupareni parkinzi (bez
-    potvrdjenih koordinata) su 'nepoznat'."""
+    """Tip parkinga iz data/carparks_norfolk.json (grad / Park & Ride /
+    ostalo); parking bez tipa u JSON-u je 'nepoznat'."""
     with open(PARKS_JSON, encoding="utf-8") as f:
         parks = json.load(f)["parks"]
     return {p["code"]: (p.get("type") or "nepoznat") for p in parks}
@@ -165,12 +165,14 @@ def mae_by_horizon(test: pd.DataFrame, pred: np.ndarray) -> dict[int, float]:
 # ------------------------------------------------------------------ grafici
 
 INK, MUTED, GRID = "#21201c", "#52514e", "#e4e3dc"
-# Tip parkinga: plavo/narandzasto (validirano), "nepoznat" namerno sivo
-# (neutralno = tip nije poznat) i uvek uz drugaciju crtu / legendu.
+# Tip parkinga: plavo/narandzasto (validirano); "ostalo" (B&Q Boundary Road,
+# jedan parking) i "nepoznat" namerno sivo (neutralno) i uvek uz drugaciju
+# crtu / legendu.
 TYPE_STYLE = {
     "grad": {"color": "#2a78d6", "linestyle": "-", "marker": "o"},
     "Park & Ride": {"color": "#eb6834", "linestyle": "-", "marker": "s"},
-    "nepoznat": {"color": "#898781", "linestyle": "--", "marker": "x"},
+    "ostalo": {"color": "#898781", "linestyle": "--", "marker": "x"},
+    "nepoznat": {"color": "#898781", "linestyle": ":", "marker": "x"},
 }
 # Grupe horizonata su uredjene (kratko -> dugo): jedna nijansa, svetlo -> tamno
 # (ordinalna rampa, validirana sa --ordinal).

@@ -1,8 +1,10 @@
 """
 Spisak Norfolk parkinga - kapacitet se cita iz data/raw/Norfolk.csv (stvaran
 podatak), koordinate/ime/tip iz data/carparks_norfolk.json (poglavlje 5,
-MASTER_PLAN.md). Neuparene sifre imaju lat/lng = None i confirmed = False -
-ne izmisljaju se koordinate.
+MASTER_PLAN.md). Imena i koordinate svih 15 parkinga su iz zvanicnog Norfolk
+County Council feeda (arhiviran 2018, vidi _comment u JSON-u). Parking bez
+koordinata (lat/lng = None, confirmed = False) se i dalje ne prikazuje na mapi
+niti ulazi u preporuku - ne izmisljaju se koordinate.
 """
 
 import json

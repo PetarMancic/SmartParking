@@ -63,7 +63,7 @@ smart-parking/
 ├── CLAUDE.md, README.md, PROGRESS.md
 ├── requirements.txt, package.json     # Python zavisnosti; npm prečice (backend/frontend)
 ├── data/
-│   ├── carparks_norfolk.json          # koordinate/ime/tip za 15 parkinga (9 potvrđenih)
+│   ├── carparks_norfolk.json          # ime/tip/koordinate za svih 15 parkinga (iz NCC feeda)
 │   └── parking.csv, park_coordinates.json   # stari Birmingham PoC (istorija)
 ├── ml/
 │   ├── data_prep.py                   # priprema podataka (konfigurabilno po gradu)
@@ -95,9 +95,10 @@ smart-parking/
 - Priprema: `rate = clip(Occupancy/Capacity, 0, 1)`, resample na pravilnu mrežu od
   30 min. Rupe se ne popunjavaju.
 - Trening je pre 1.10.2017, a test 1.10.–5.12.2017 (`CITY_CONFIGS` u `ml/data_prep.py`).
-- Koordinate su u `data/carparks_norfolk.json`: 9 od 15 parkinga je potvrđeno.
-  **Ne izmišljati koordinate.** Nepotvrđeni parkinzi ulaze u model, ali ne i na mapu i
-  u preporuku (obrazloženje u `README.md`).
+- Imena, tipovi (grad / Park & Ride / ostalo) i koordinate svih 15 parkinga su u
+  `data/carparks_norfolk.json`, iz zvaničnog Norfolk County Council feeda (arhiviran na
+  Wayback Machine-u; obrazloženje u `README.md`). **Ne izmišljati koordinate:** parking
+  bez koordinata ne ide na mapu ni u preporuku.
 
 ## Model, preporuka, evaluacija (sažetak; brojevi u `PROGRESS.md`)
 

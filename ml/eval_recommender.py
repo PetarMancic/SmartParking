@@ -27,7 +27,10 @@ Postupak:
 Ogranicenja (upisati u rad):
 - Nedelja je izostavljena: P&R parkinzi nedeljom ne rade, pa im je zauzetost 0
   i izgledaju "slobodno".
-- Kandidati su samo parkinzi sa potvrdjenim koordinatama (9 od 15).
+- Kandidati su 14 parkinga (8 gradskih + 6 Park & Ride, koordinate iz
+  zvanicnog NCC feeda); B&Q Boundary Road (parking prodavnice) se ne
+  preporucuje (recommender.RECOMMENDABLE_TYPES). Do 2026-10-28 kandidata je
+  bilo 9, sa koordinatama iz postanskog broja - vidi PROGRESS.md.
 - Kandidat mora imati ocitavanje u trenutku "sada" (inace backend nema
   predikciju) i u trenutku dolaska (inace ishod ne moze da se izmeri).
 - "Hodanje" do P&R parkinga je ~4-5 km - u stvarnosti se ide autobusom. Zato
@@ -136,6 +139,7 @@ def build_options(trips: pd.DataFrame, source: ReplaySource, parks: list[dict]) 
                         "now": trip.now,
                         "park_id": park["park_id"],
                         "city_park": park["type"] == "grad",
+                        "p_and_r": park["type"] == "Park & Ride",
                         "distance_to_origin_km": d_origin,
                         "distance_to_destination_km": d_dest,
                         "horizon_steps": steps,
@@ -206,6 +210,7 @@ def simulate(groups: list[list[dict]], strategies: list[str], weights, seed: int
                     "now": chosen["now"],
                     "park_id": chosen["park_id"],
                     "city_park": chosen["city_park"],
+                    "p_and_r": chosen["p_and_r"],
                     "walk_km": chosen["distance_to_destination_km"],
                     "drive_km": chosen["distance_to_origin_km"],
                     "actual_rate": chosen["rate_actual"],
@@ -224,7 +229,8 @@ def summarize(outcomes: pd.DataFrame, by: list[str]) -> pd.DataFrame:
                 "hodanje_km": g["walk_km"].mean(),
                 "voznja_km": g["drive_km"].mean(),
                 "zauzetost_pri_dolasku_pct": 100 * g["actual_rate"].mean(),
-                "p_and_r_pct": 100 * (~g["city_park"].astype(bool)).mean(),
+                # samo pravi Park & Ride (B&Q Boundary Road je tip "ostalo")
+                "p_and_r_pct": 100 * g["p_and_r"].astype(bool).mean(),
             }
         )
 
@@ -363,7 +369,11 @@ def main() -> None:
 
     print("Ucitavam podatke i model...")
     source = ReplaySource(city=CITY)
-    parks = [p for p in parks_module.load_parks(CITY) if p["lat"] is not None]
+    # Isti kandidati kao u API-ju: sa koordinatama i tipom koji se preporucuje.
+    parks = [
+        p for p in parks_module.load_parks(CITY)
+        if p["lat"] is not None and p["type"] in recommender.RECOMMENDABLE_TYPES
+    ]
     trips = generate_trips(rng)
     print(f"{len(trips)} vozaca, {len(parks)} parkinga sa koordinatama, vremena planiranja {LEAD_TIMES_MIN} min")
 

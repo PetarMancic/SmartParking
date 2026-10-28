@@ -54,7 +54,7 @@ smart-parking/
 ├── requirements.txt, package.json     # Python zavisnosti; npm prečice (backend/frontend)
 ├── run.py                             # alternativa za pokretanje backenda (python run.py)
 ├── data/
-│   ├── carparks_norfolk.json          # koordinate/ime/tip za 15 parkinga (9 potvrđenih)
+│   ├── carparks_norfolk.json          # ime/tip/koordinate za svih 15 parkinga (iz NCC feeda)
 │   └── parking.csv, park_coordinates.json  # stari Birmingham PoC - vidi dno fajla
 ├── ml/
 │   ├── data_prep.py                   # priprema podataka (konfigurabilno po gradu)
@@ -168,8 +168,9 @@ python ml/analyze_model.py      # ~10 min: SHAP, ablacija, greška po parkingu/d
 ```
 
 Ukratko:
-- Bez sistema (najbliži parking) vozač stiže na pun parking u 17,5% slučajeva. Sa
-  preporukom je to 0% (svi parkinzi), odnosno 1,8% (samo gradski).
+- Bez sistema (najbliži parking) vozač stiže na pun parking u 19,3% slučajeva. Sa
+  preporukom je to 0% (svi parkinzi), odnosno 2,6% (samo gradski). Kandidata za
+  preporuku je 14 (8 gradskih i 6 Park & Ride), a B&Q Boundary Road je samo na mapi.
 - XGBoost ima najmanju grešku: MAE 4,83 p.p. ukupno, 2,87 na 30 min.
 - Za kratke prognoze presudna je trenutna zauzetost, a za duge stanje u isto vreme
   juče i pre nedelju dana.
@@ -205,7 +206,8 @@ do destinacije. Vreme dolaska se procenjuje po pravoj liniji od polaska pri 30 k
 računa se od `departure_time` ako je dat, inače od simuliranog „sada”. Za to vreme se
 pravi predikcija. `saobraćaj` je jednostavna heuristika (vršni sat + udaljenost), ne
 pravi podatak, jer dataset nema saobraćajne podatke. Analiza je pokazala da ona zapravo
-ne meri saobraćaj, pa odluka čeka mentora (vidi „Ograničenja”).
+ne meri saobraćaj, pa odluka čeka mentora (vidi „Ograničenja”). Preporučuju se samo
+parkinzi tipa „grad” i „Park & Ride” (`RECOMMENDABLE_TYPES`).
 
 ## Frontend (`frontend/app/`)
 
@@ -232,15 +234,13 @@ ne meri saobraćaj, pa odluka čeka mentora (vidi „Ograničenja”).
 
 ## Ograničenja (trenutna, svesna)
 
-- **6 od 15 parkinga nema potvrđene koordinate** (CPN0003/6/8/11/13, C06391). Dataset
-  sadrži samo šifre (`CPN00xx`) iz Norfolk County Council live feeda, bez imena i
-  lokacija. Uparivanje sa današnjim spiskom parkinga je urađeno poređenjem kapaciteta
-  (`../MASTER_PLAN.md`, poglavlje 5): 9 parkinga je potvrđeno, a za preostalih 6 današnji kandidati (St
-  Andrew's, John Lewis, Riverside, St Giles, St Stephens, Airport P&R) imaju kapacitet
-  koji se ne poklapa sa podacima iz 2017. Po pravilu „ne izmišljati koordinate” tih 6
-  nema pin na mapi i ne ulaze u preporuku, jer bez lokacije nema udaljenosti. I dalje
-  ulaze u trening i evaluaciju modela (svih 15), pa su metrike predikcije na svim
-  parkinzima.
+- **Koordinate parkinga su iz arhiviranog feeda, a ne iz živog.** Dataset sadrži samo
+  šifre (`CPN00xx`, `C06391`), bez imena i lokacija. Imena i koordinate svih 15
+  parkinga su uzeti iz zvaničnog Norfolk County Council live car park feeda (DATEX II,
+  `datex.norfolk.cdmf.info/carparks/content.xml`), koji danas ne odgovara, ali ga je
+  Wayback Machine arhivirao 2016, 2018. i 2024. Sva tri snimka daju isto uparivanje, a
+  kapaciteti se poklapaju sa podacima. Do 28.10.2026. samo 9 parkinga je imalo
+  koordinate (iz poštanskog broja), a 6 je bilo bez lokacije; vidi `PROGRESS.md`.
 - **Saobraćaj u skoru preporuke je heuristika**, ne pravi podatak (dataset ga nema).
   Deo za vršne sate ne menja redosled preporuka, a deo za udaljenost je zapravo dodatna
   kazna za udaljenost. Da li saobraćaj ostaje budući rad, i šta tada sa w3, čeka odgovor

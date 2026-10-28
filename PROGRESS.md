@@ -144,27 +144,27 @@ Testirano u browseru (backend :8000, frontend :3000): skok na datum, otkrivanje,
 
 | Strategija | Pun pri dolasku, polazak odmah | Pun, planiranje 4 h | Hodanje |
 |---|---|---|---|
-| Najbliži destinaciji | 17,5% | 14,3% | 0,61 km |
-| Preporuka, naivna prognoza | 0,0% | 9,4% | ~0,96 km |
-| **Preporuka, XGBoost** | **0,0%** | **0,0%** | ~0,93 km |
+| Najbliži destinaciji | 19,3% | 15,4% | 0,49 km |
+| Preporuka, naivna prognoza | 0,0% | 8,2% | ~0,95 km |
+| **Preporuka, XGBoost** | **0,0%** | **0,0%** | ~0,92 km |
 | Preporuka, savršena prognoza | 0,0% | 0,0% | ~1,0 km |
 
-Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 17,5%, naivna 2,1% → 10,4% (4 h), XGBoost 1,8% → 2,4%, oracle 1,9% → 2,6%; hodanje 0,61 naspram ~0,73 km.
+Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 19,3%, naivna 2,3% → 9,8% (4 h), XGBoost 2,6% → 2,9%, oracle 2,3% → 3,1%; hodanje 0,49 naspram ~0,68 km.
 
-**Subota 11–16h** (najteži slučaj, `eval_recommender_subota_vrhunac.csv`): najbliži parking je pun u **85%** slučajeva. Preporuka spušta to na 0% (uz 14% upućivanja na P&R). Kad su dozvoljeni samo gradski parkinzi, pada na 7,5% (oracle 9%). Toliko ostaje i uz savršenu prognozu: tada su puni svi gradski parkinzi i nema boljeg izbora.
+**Subota 11–16h** (najteži slučaj, `eval_recommender_subota_vrhunac.csv`): najbliži parking je pun u **70%** slučajeva. Preporuka spušta to na 0% (uz 18% upućivanja na P&R). Kad su dozvoljeni samo gradski parkinzi, pada na 11,9%, isto kao oracle. Toliko ostaje i uz savršenu prognozu: tada su puni svi gradski parkinzi i nema boljeg izbora.
 
-*Brojevi su ažurirani 2026-10-27, posle uvođenja zamene za `y_lastweek` u koraku 5 (`backend/predictor.py`); evaluacija je ponovo pokrenuta. Menja se samo strategija „XGBoost”, za najviše 1,5 p.p.: subota, samo gradski 9,0% → 7,5%; samo gradski, polazak odmah 1,9% → 1,8%. Zaključci ostaju isti.*
+*Brojevi su ažurirani 2026-10-28: kandidata je **14 umesto 9** (8 gradskih + 6 P&R, koordinate iz NCC feeda; B&Q Boundary Road se ne preporučuje). Sa 9 kandidata je bilo: najbliži 17,5%; samo gradski, XGBoost 1,8% → 2,4%; subota 85%, odnosno 0% (14% na P&R) i 7,5% samo gradski; hodanje +120–340 m. Sa više gradskih parkinga najbliži je bliži (0,49 km) i češće pun (19,3%). Scenario „samo gradski” je nešto teži, jer su novi gradski parkinzi (St Andrew's, St Giles, John Lewis) takođe često puni. Zaključci ostaju isti. Ranije ažuriranje (2026-10-27, zamena za `y_lastweek` iz koraka 5) menjalo je samo strategiju „XGBoost”, za najviše 1,5 p.p.*
 
 **Zaključci za rad:**
-1. **Preporuka radi:** rizik dolaska na pun parking pada sa 17,5% na 0–2%, uz ~120–340 m više hodanja.
-2. **Vrednost ML prognoze raste sa vremenom planiranja.** Za polazak odmah (horizont 30 min) naivna prognoza je jednako dobra kao model. Kad vozač planira 2–4 h unapred, naivna prognoza dovodi na pun parking u 3,5–10% slučajeva, a model ostaje na 0–2,5%.
+1. **Preporuka radi:** rizik dolaska na pun parking pada sa 19,3% na 0–3%, uz ~190–460 m više hodanja.
+2. **Vrednost ML prognoze raste sa vremenom planiranja.** Za polazak odmah (horizont 30 min) naivna prognoza je jednako dobra kao model. Kad vozač planira 2–4 h unapred, naivna prognoza dovodi na pun parking u 2,7–9,8% slučajeva, a model ostaje na 0–2,9%.
 3. **Model je praktično na nivou savršene prognoze.** Kvalitet predikcije više nije usko grlo; preostali neuspesi su situacije kada su svi gradski parkinzi puni.
 4. **Oracle je ponekad malo lošiji od modela.** Formula tretira dostupnost linearno (96% i 100% zauzetosti se jedva razlikuju), iako je pun parking zapravo neuspeh. Ideja za poboljšanje ili diskusiju: nelinearna kazna kad je predviđena zauzetost blizu kapaciteta, uz korišćenje MAE kao nesigurnosti.
-5. **Osetljivost pondera** (`eval_recommender_osetljivost.csv/.png`, w3 = 0, w2 = 1 − w1). Za gradske parkinge, pri w1 ≥ 0,7 rizik pada ispod 1% uz ~780 m hodanja. Kad su u igri i P&R, pri w1 > 0,6 sistem šalje 20–90% vozača na P&R. Trenutni ponderi (0.55/0.3/0.15) su u dobroj tački: 0% punih, ~0,95 km hodanja, ~2% na P&R. Pri planiranju 2 h unapred kriva modela je skoro na krivoj oracle-a, a naivna ostaje na ~3% i pri w1 = 1.
+5. **Osetljivost pondera** (`eval_recommender_osetljivost.csv/.png`, w3 = 0, w2 = 1 − w1). Za gradske parkinge, pri w1 ≥ 0,7 rizik pada ispod 1% uz ~730 m hodanja. Kad su u igri i P&R, pri w1 > 0,6 sistem šalje 23–87% vozača na P&R. Trenutni ponderi (0.55/0.3/0.15) su u dobroj tački: 0% punih, ~0,95 km hodanja, ~3% na P&R. Pri planiranju 2 h unapred kriva modela je skoro na krivoj oracle-a, a naivna ostaje na ~2% i pri w1 = 1.
 
 **Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i `ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
 
-**Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su samo 9 parkinga sa koordinatama; ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); w3 (saobraćaj) je heuristika. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
+**Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su 14 parkinga (B&Q Boundary Road se ne preporučuje; do 2026-10-28 bilo ih je 9); ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); w3 (saobraćaj) je heuristika. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
 
 ### Korak 4 — Poređenje modela (`ml/compare_models.py`) ✅
 
@@ -244,9 +244,9 @@ Ista podela kao u koraku 4 (trening pre 1.10.2017, test 1.10.–5.12.2017, svih 
 - **Praznik:** test period (oktobar–decembar 2017) nema nijedan praznik, pa uticaj ne može da se izmeri. To ostaje kao ograničenje evaluacije.
 
 **3. Greška po parkingu, tipu, dobu dana i popunjenosti, `analiza_greske.png`.**
-- Po tipu: Park & Ride 2,23 p.p. (prosečno 27% pun), grad 6,46 (47%), nepoznat tip 4,16. Gradski parkinzi su teži jer su puniji i promenljiviji.
-- Najteži parking je **CPN0009 The Forum** (10,83; na 30 min 6,20), zatim CPN0006 (8,05) i CPN0005 Castle Quarter 2 (7,78). Najlakši je C06391 (0,97; skoro uvek prazan).
-- Po dobu dana gradski parkinzi su najteži **uveče (18–21 h, do 9,5 p.p.)** i u **jutarnjem punjenju (9–10 h)**. Ovo važi i na fiksnom horizontu od 1 h (18 h: 6,7 p.p. naspram 12 h: 2,9), pa nije posledica mešanja horizonata. Prelazi (punjenje i pražnjenje) su teški, a stabilni periodi laki. Verovatan uzrok, nepotvrđen, su večernji događaji i izlasci u centru, kojih nema u podacima. Po danu je najteža nedelja (6,15), a ostali dani su 4,2–5,0.
+- Po tipu: Park & Ride 2,36 p.p. (prosečno 28% pun, 6 parkinga), grad 6,35 (52%, 8 parkinga), ostalo (B&Q Boundary Road) 0,97 (20%). Gradski parkinzi su teži jer su puniji i promenljiviji. *Ažurirano 2026-10-28, kad su svi parkinzi dobili tip iz NCC feeda. Ranije je 6 parkinga bilo „nepoznat tip” (4,16), a sada su raspoređeni po tipovima. Novi gradski (John Lewis, St Giles, St Andrew's) i novi P&R (Airport, Postwick) imaju greške tipične za svoj tip, što potvrđuje uparivanje.*
+- Najteži parking je **CPN0009 The Forum** (10,83; na 30 min 6,20), zatim CPN0006 St Giles (8,05) i CPN0005 Castle Quarter 2 (7,78). Najlakši je C06391 B&Q Boundary Road (0,97; skoro uvek prazan).
+- Po dobu dana gradski parkinzi su najteži **uveče (18–21 h, do 9,2 p.p.)** i u **jutarnjem punjenju (9–10 h)**. Ovo važi i na fiksnom horizontu od 1 h (19 h: 6,4 p.p., 9 h: 5,0, naspram 12 h: 3,1), pa nije posledica mešanja horizonata. Prelazi (punjenje i pražnjenje) su teški, a stabilni periodi laki. Verovatan uzrok, nepotvrđen, su večernji događaji i izlasci u centru, kojih nema u podacima. Po danu je najteža nedelja (6,15), a ostali dani su 4,2–5,0.
 - Po stvarnoj popunjenosti: ispod 50% greška je 3,80, za 50–80% je 6,05, za **80–95% je 7,69** (najveća), a za ≥ 95% je 6,09. Kada je parking stvarno ≥ 95% pun, model predviđa ≥ 90% u **76%** slučajeva. Za preporuku je opseg 80–95% najrizičniji, što je argument za nelinearnu dostupnost (opciona stavka iz koraka 3).
 
 **4. Nedostajući podaci i zamena (fallback).**
@@ -314,9 +314,13 @@ Analiza (2026-10-27) je pokazala da heuristika za saobraćaj ne meri saobraćaj.
 
 | Varijanta | Pun pri dolasku (samo gradski) | Na P&R (svi parkinzi) | Subota 11–16 h: na P&R / pun (gradski) |
 |---|---|---|---|
-| sada: 0.55/0.3/0.15 + heuristika | 1,8% | 2,2% | 14% / 7,5% |
-| w3 = 0, ponderi 0.6/0.4 | 3,0% | 2,9% | 15% / 11,9% |
-| w3 = 0, ponderi 0.55/0.3 | 1,6% | 8,8% | 30% / 6,7% |
+| sada: 0.55/0.3/0.15 + heuristika | 2,6% | 2,8% | 18% / 11,9% |
+| w3 = 0, ponderi 0.6/0.4 | 4,0% | 4,0% | 19% / 19,4% |
+| w3 = 0, ponderi 0.55/0.3 | 2,3% | 10,8% | 37% / 11,2% |
+
+*Ažurirano 2026-10-28: tabela je izračunata sa 14 kandidata (svi parkinzi sa koordinatama iz NCC feeda, bez B&Q Boundary Road). Sa 9 kandidata je bilo: sada 1,8% / 2,2% / 14% / 7,5%; 0.6/0.4 3,0% / 2,9% / 15% / 11,9%; 0.55/0.3 1,6% / 8,8% / 30% / 6,7%. Sa više parkinga, izbacivanje heuristike više košta (subota, samo gradski: 11,9% → 19,4% uz 0.6/0.4).*
+
+Primećena je još jedna slabost: skor ne kažnjava udaljenost od polaska. Vozaču sa zapada se nude P&R na suprotnim stranama grada (Sprowston, Postwick), umesto Costessey-ja i Thickthorn-a koji su mu na putu. Kandidat za treći član umesto „saobraćaja” je **vreme vožnje do parkinga** (već se računa kao ETA, a sa pravim saobraćajem bi postalo tačnije). Još nije izmereno.
 
 Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min) nisu nađeni besplatno. Za ulazne puteve (A47, A11) postoji National Highways WebTRIS. Pitanje i opcije su u `../ZA_MENTORA.md`; kod se ne menja dok mentor ne odgovori.
 
@@ -346,3 +350,29 @@ Promenjen je samo prezentacioni sloj. Pozivi ka backendu, parametri, polling (3 
 - Preporuka #1 je istaknuta i ima blok „Zašto?“ sa delovima skora i formulom skora.
 - Dodata su stanja učitavanja i prazna stanja; responsive prikaz je proveren na 390 px.
 - Detalji, inventar funkcionalnosti i checklista za ručnu proveru su u `frontend/UI_REDESIGN_PLAN.md`.
+
+### Svih 15 parkinga na mapi: koordinate iz zvaničnog NCC feeda (2026-10-28)
+
+**Problem:** dataset ima samo šifre parkinga. Do sada je 9 šifri bilo upareno poređenjem kapaciteta sa današnjim spiskom, a koordinate su bile iz poštanskog broja (postcodes.io). Za 6 šifri (CPN0003, CPN0006, CPN0008, CPN0011, CPN0013, C06391) uparivanje nije bilo sigurno, pa nisu bile na mapi ni u preporuci.
+
+**Rešenje:** šifre potiču iz Norfolk County Council live car park feeda (DATEX II, `https://datex.norfolk.cdmf.info/carparks/content.xml`, nađen preko paketa `live-parking-norwich` i data.gov.uk). Feed danas ne odgovara (timeout), ali ga je Wayback Machine arhivirao 6.3.2016, 1.9.2018. i 4.8.2024. Feed za svaku šifru daje ime, kapacitet i koordinate. Sva tri snimka daju isto uparivanje, a kapaciteti se poklapaju sa Norfolk.csv.
+
+| Šifra | Parking | Tip |
+|---|---|---|
+| CPN0003 | John Lewis, Ber Street | grad |
+| CPN0006 | St Giles, St Giles Street | grad |
+| CPN0008 | St Andrew's, Duke Street | grad |
+| CPN0011 | Airport Park & Ride | Park & Ride |
+| CPN0013 | Postwick Park & Ride | Park & Ride |
+| C06391 | B&Q Boundary Road (parking prodavnice) | ostalo |
+
+Dve ranije pretpostavke iz `MASTER_PLAN.md` su bile pogrešne (CPN0011 nije John Lewis, CPN0013 nije Airport). Pravilo „ne izmišljati koordinate” se pokazalo opravdanim. Isključeni parkinzi su CPN0001 = Anglia Square, CPN0002 = St Stephens i CPN0010 = Riverside.
+
+**Izmene:**
+- `data/carparks_norfolk.json` ima svih 15 parkinga: ime, ime iz feeda, tip i koordinate iz feeda. Za postojećih 9 koordinate su zamenjene feedom; ranije koordinate iz poštanskog broja odstupale su 11–680 m. Skripta za generisanje je jednokratna (scratch), a izvor je opisan u `_comment`.
+- `backend/recommender.py` ima novu konstantu `RECOMMENDABLE_TYPES = {"grad", "Park & Ride"}`. B&Q (parking prodavnice za kupce, 3,6 km od centra, bez autobusa) se vidi na mapi i ulazi u model, ali se ne preporučuje (odluka korisnika). Evaluacija koristi isti filter.
+- `ml/eval_recommender.py`: udeo „na P&R” sada broji samo tip „Park & Ride”, a ne „sve što nije grad”.
+- `ml/analyze_model.py`: tip „ostalo” u grafiku greške.
+- Model se ne menja, jer je već koristio svih 15 parkinga (MAE 4,83 ostaje). Ponovo su pokrenute evaluacija preporuke (korak 3), poređenje opcija za saobraćaj (korak 6) i greška po tipu (korak 5), pa su brojevi u tim odeljcima ažurirani.
+
+**Provera tipova:** novi gradski parkinzi imaju greške tipične za grad (St Giles 8,05, John Lewis 5,68, St Andrew's 4,43), a novi P&R greške tipične za P&R (Airport 2,75, Postwick 2,42). Ponašanje u podacima se slaže sa uparivanjem iz feeda.
