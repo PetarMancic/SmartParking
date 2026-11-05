@@ -60,7 +60,8 @@ smart-parking/
 │   ├── data_prep.py                   # priprema podataka (konfigurabilno po gradu)
 │   ├── train_norfolk.py               # trening jednog modela, bilo koji horizont
 │   ├── model_norfolk.joblib           # sačuvan model (generiše train_norfolk.py)
-│   ├── eval_recommender.py            # evaluacija preporuke simulacijom vozača
+│   ├── eval_recommender.py            # evaluacija preporuke simulacijom vozača (nov.–dec. 2017)
+│   ├── select_weights.py              # izbor pondera preporuke na validacionom periodu (okt. 2017)
 │   ├── compare_models.py              # poređenje modela i baseline-ova
 │   ├── analyze_model.py               # analiza modela (SHAP, ablacija, greške, rupe)
 │   ├── output/                        # metrike, tabele i grafici (CSV/PNG) za rad
@@ -158,19 +159,25 @@ analiza” ispod.
 ## Evaluacija i analiza (`ml/`)
 
 Svi eksperimenti koriste istu hronološku podelu (trening pre 1.10.2017, test
-1.10.–5.12.2017). Rezultati (CSV i PNG) idu u `ml/output/`, a brojevi i zaključci u
-`PROGRESS.md` (koraci 3–5).
+1.10.–5.12.2017). Za preporuku je test period podeljen još jednom: ponderi formule se
+biraju na oktobru 2017, a konačni brojevi se mere na novembru i decembru, sa drugim
+simuliranim vozačima. Rezultati (CSV i PNG) idu u `ml/output/`, a brojevi i zaključci u
+`PROGRESS.md` (koraci 3–6).
 
 ```bash
-python ml/eval_recommender.py   # ~7 min: preporuka na 2000 simuliranih vozača (najbliži / naivna / XGBoost / savršena prognoza)
+python ml/select_weights.py     # ~7 min: izbor pondera w1/w2/w3 na oktobru (231 kombinacija, Pareto front)
+python ml/eval_recommender.py   # ~7 min: preporuka na 2000 simuliranih vozača, nov.–dec. (najbliži / naivna / XGBoost / savršena prognoza)
 python ml/compare_models.py     # ~3 min: XGBoost naspram Random Forest, HistGradientBoosting, Ridge i baseline-ova
 python ml/analyze_model.py      # ~10 min: SHAP, ablacija, greška po parkingu/dobu dana, nedostajući podaci, dužina treninga
 ```
 
 Ukratko:
-- Bez sistema (najbliži parking) vozač stiže na pun parking u 19,3% slučajeva. Sa
-  preporukom je to 0% (svi parkinzi), odnosno 2,6% (samo gradski). Kandidata za
+- Na novembru i decembru 2017, bez sistema (najbliži parking) vozač stiže na pun
+  parking u 21,5% slučajeva. Sa preporukom je to 0,6–0,9% (svi parkinzi), odnosno
+  0,9–1,1% (samo gradski), uz prosečno ~20 min od polaska do cilja. Kandidata za
   preporuku je 14 (8 gradskih i 6 Park & Ride), a B&Q Boundary Road je samo na mapi.
+- Ponderi su izabrani na oktobru, a mereni na novembru i decembru. Oko izabranih
+  pondera rezultati su skoro isti za širok raspon kombinacija.
 - XGBoost ima najmanju grešku: MAE 4,83 p.p. ukupno, 2,87 na 30 min.
 - Za kratke prognoze presudna je trenutna zauzetost, a za duge stanje u isto vreme
   juče i pre nedelju dana.
@@ -201,9 +208,12 @@ curl "http://127.0.0.1:8000/state?target_time=2017-10-10T17:00:00"
 ```
 
 **Preporuka** (`recommender.py`): `skor = w1·dostupnost + w2·blizina − w3·vreme_vožnje`
-(w1=0.55, w2=0.3, w3=0.15, konstante na vrhu fajla). `blizina` meri hodanje od parkinga
+(w1=0.15, w2=0.4, w3=0.45, konstante na vrhu fajla, izabrane na oktobru 2017 pravilom iz
+`ml/select_weights.py`; vidi „Evaluacija i analiza”). `blizina` meri hodanje od parkinga
 do destinacije, a `vreme_vožnje` vožnju od polaska do parkinga, odnosno trošak dolaska
-do parkinga. Obe su normalizovane na 0–1 u odnosu na najudaljenijeg kandidata. Vreme
+do parkinga. Obe su normalizovane na 0–1 fiksnim skalama (10 km hoda, 30 min vožnje),
+a ne najudaljenijim kandidatom, pa poređenje dva parkinga ne zavisi od toga koji su još
+parkinzi u listi (npr. kad filter „radius” izbaci P&R). Vreme
 vožnje se procenjuje po pravoj liniji pri 30 km/h. Ista procena daje i vreme dolaska,
 koje se računa od `departure_time` ako je dat, inače od simuliranog „sada”, i za njega
 se pravi predikcija. Do 5.11.2026. treći član je bio heuristika „saobraćaj”, koja
@@ -248,9 +258,12 @@ zapravo nije merila saobraćaj; zamenjena je po odluci mentora (vidi „Ogranič
   mentorom. Treći član skora je vreme vožnje do parkinga, procenjeno po pravoj liniji
   pri 30 km/h, bez mreže puteva i saobraćaja. Sa pravim podacima o saobraćaju menjala
   bi se samo ta procena, a formula bi ostala ista.
-- **Evaluacija preporuke je simulacija na istorijskim podacima** (izmišljeni vozači,
-  stvarna zauzetost pri dolasku). Nedelja je izostavljena (P&R ne rade), a vreme
-  dolaska je procena po pravoj liniji.
+- **Evaluacija preporuke je simulacija na istorijskim podacima** (offline replay:
+  izmišljeni vozači, stvarna zauzetost pri dolasku). Nedelja je izostavljena (P&R ne
+  rade), a vreme dolaska je procena po pravoj liniji.
+- **Izbor pondera zavisi od pretpostavki** o hodanju (5 km/h) i P&R autobusu (5 min
+  čekanja, 20 km/h), jer pravi red vožnje nije korišćen. Uz vrlo brz autobus izbor bi
+  slao mnogo više vozača na P&R (`ml/output/izbor_pondera_provera.csv`).
 - **Test period nema nijedan praznik**, pa uticaj `holiday` ulaza nije mogao da se izmeri.
 - **OSRM (javni demo ruting server)** ume da napravi netačnu ili zaobilaznu rutu u
   centru grada, jer ne zna sve zabrane skretanja. To je uočeno i potvrđeno poređenjem

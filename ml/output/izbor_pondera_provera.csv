@@ -1,0 +1,7 @@
+varijanta,cekanje_min,autobus_kmh,tolerancija_pp,w1,w2,w3,pun_95_pct,pun_90_pct,vreme_do_cilja_min,voznja_min,do_cilja_km,p_and_r_pct
+osnovno,5.0,20.0,0.5,0.15,0.4,0.45,0.405,0.593,19.83,10.03,1.067,9.064
+sporiji autobus (10 min cekanja),10.0,20.0,0.5,0.2,0.6,0.2,0.391,0.553,19.888,10.933,0.746,0.0
+"jos sporiji autobus (10 min, 15 km/h)",10.0,15.0,0.5,0.2,0.6,0.2,0.391,0.553,19.888,10.933,0.746,0.0
+"brzi autobus (3 min, 25 km/h)",3.0,25.0,0.5,0.15,0.3,0.55,0.216,0.31,19.024,7.187,2.591,42.824
+"stroza tolerancija (0,25 p.p.)",5.0,20.0,0.25,0.25,0.65,0.1,0.243,0.364,20.176,10.978,0.767,0.0
+blaza tolerancija (1 p.p.),5.0,20.0,1.0,0.2,0.8,0.0,0.917,1.457,19.354,11.008,0.695,0.0

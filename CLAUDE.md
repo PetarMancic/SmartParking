@@ -68,7 +68,8 @@ smart-parking/
 ├── ml/
 │   ├── data_prep.py                   # priprema podataka (konfigurabilno po gradu)
 │   ├── train_norfolk.py               # trening jednog modela → model_norfolk.joblib
-│   ├── eval_recommender.py            # korak 3: evaluacija preporuke (simulirani vozači)
+│   ├── eval_recommender.py            # korak 3: evaluacija preporuke (simulirani vozači, nov.–dec.)
+│   ├── select_weights.py              # korak 6b: izbor pondera na validacionom periodu (okt.)
 │   ├── compare_models.py              # korak 4: poređenje modela i baseline-ova
 │   ├── analyze_model.py               # korak 5: SHAP, ablacija, greške, nedostajući podaci
 │   ├── output/                        # CSV i PNG rezultati (idu u rad)
@@ -107,15 +108,22 @@ smart-parking/
   2,87 na 30 min. Kad `y_lastweek` fali, `backend/predictor.py` uzima isti termin
   14 dana ranije.
 - **Preporuka:** `skor = w1·dostupnost + w2·blizina_destinaciji − w3·vreme_vožnje`
-  (`backend/recommender.py`). Ponderi su konstante na vrhu fajla (0.55/0.3/0.15;
-  biraju se ponovo u koraku 6b). Dostupnost se računa za procenjeno vreme dolaska.
+  (`backend/recommender.py`). Ponderi su konstante na vrhu fajla (0.15/0.4/0.45,
+  izabrani na oktobru 2017 u koraku 6b). Blizina i vreme vožnje se normalizuju
+  fiksnim skalama (10 km, 30 min), ne najudaljenijim kandidatom. Dostupnost se
+  računa za procenjeno vreme dolaska.
   Bodovanje je u čistoj funkciji `score_candidates()`, koju koriste i API i evaluacija.
 - **Saobraćaj:** dataset ga nema, pa je budući rad (odluka mentora, 4.11.2026). Treći
   član skora je vreme vožnje od polaska do parkinga (trošak dolaska do parkinga), a
   ne saobraćaj.
-- **Evaluacija:** `ml/eval_recommender.py` (~7 min), `ml/compare_models.py` (~3 min),
-  `ml/analyze_model.py` (~10 min). Izlazi su u `ml/output/`. Posle izmene prediktora
-  ili preporuke ponovo pokrenuti evaluaciju i ažurirati brojeve u `PROGRESS.md`.
+- **Evaluacija:** `ml/select_weights.py` (~7 min), `ml/eval_recommender.py` (~7 min),
+  `ml/compare_models.py` (~3 min), `ml/analyze_model.py` (~10 min). Izlazi su u
+  `ml/output/`. Posle izmene prediktora ili preporuke ponovo pokrenuti evaluaciju i
+  ažurirati brojeve u `PROGRESS.md`.
+- **Pošteno merenje preporuke:** ponderi se biraju samo na oktobru 2017
+  (`select_weights.py`, pravilo u docstringu), a konačni brojevi se mere samo na
+  novembru i decembru (`eval_recommender.py`). Pondere ne menjati prema rezultatima
+  sa novembra i decembra.
 
 ## Šta NE raditi
 

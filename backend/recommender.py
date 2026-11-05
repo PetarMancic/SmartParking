@@ -38,10 +38,14 @@ from backend import predictor
 from backend.datasource import DataSource
 from backend.simulator import SimulationClock
 
-# Ponderi - konstante, lako izmenljive radi eksperimentisanja.
-W1_PREDICTED_AVAILABILITY = 0.55
-W2_PROXIMITY = 0.3
-W3_DRIVE_TIME = 0.15
+# Ponderi su izabrani na validacionom periodu (oktobar 2017) pravilom iz
+# ml/select_weights.py: najmanje dolazaka na pun parking (tolerancija 0,5 p.p.),
+# pa najkrace ukupno vreme od polaska do cilja. Do koraka 6b (5.11.2026) bili
+# su rucno izabrani: 0.55 / 0.3 / 0.15. Ne menjati ih prema rezultatima sa
+# novembra i decembra - na tim podacima se meri (ml/eval_recommender.py).
+W1_PREDICTED_AVAILABILITY = 0.15
+W2_PROXIMITY = 0.4
+W3_DRIVE_TIME = 0.45
 
 TOP_N_DEFAULT = 5
 
@@ -49,6 +53,16 @@ TOP_N_DEFAULT = 5
 # Boundary Road - parking prodavnice za kupce, 3,6 km od centra, bez autobusa
 # do centra) prikazuje se na mapi i ulazi u model, ali se ne preporucuje.
 RECOMMENDABLE_TYPES = {"grad", "Park & Ride"}
+
+# Fiksne skale za normalizaciju blizine i vremena voznje na 0-1 (korak 6b).
+# Ranije se delilo najudaljenijim kandidatom u listi, pa su isti ponderi davali
+# razlicit izbor izmedju dva ista parkinga u zavisnosti od toga koji su JOS
+# parkinzi u listi (npr. filter "radius" izbaci P&R). U teoriji visekriterijumskog
+# odlucivanja to je poznat problem relativne normalizacije ("rank reversal").
+# Vrednosti su priblizno najvece udaljenosti u podrucju (najdalji P&R je ~7,4 km
+# od centra, najduza voznja u simulaciji ~25-30 min); ponderi su birani za ove skale.
+WALK_SCALE_KM = 10.0
+DRIVE_SCALE_MIN = 30.0
 
 # Nema ruting API-ja na backendu (frontend to radi preko OSRM-a za prikaz
 # rute) - gruba procena vremena voznje po pravoj liniji. Koristi se za horizont
@@ -138,21 +152,19 @@ def score_candidates(
     (0-1), `distance_to_destination_km` i `eta_minutes`. Vraca kandidate
     sortirane po skoru, od najboljeg.
 
-    Blizina i vreme voznje su normalizovani na 0-1 u odnosu na najudaljeniji
-    kandidat (isti nacin za obe komponente), pa ponderi uporedjuju iste
-    skale: 1 = najduze hodanje, odnosno najduza voznja medju kandidatima."""
+    Blizina i vreme voznje su normalizovani na 0-1 fiksnim skalama
+    (WALK_SCALE_KM, DRIVE_SCALE_MIN), a ne najudaljenijim kandidatom, pa
+    poredjenje dva parkinga ne zavisi od toga koji su jos parkinzi u listi."""
     if not candidates:
         return []
 
     w1, w2, w3 = weights
-    max_walk_distance_km = max(c["distance_to_destination_km"] for c in candidates) or 1.0
-    max_drive_minutes = max(c["eta_minutes"] for c in candidates) or 1.0
 
     results = []
     for c in candidates:
         predicted_availability = c["availability_score"]
-        closeness = 1 - (c["distance_to_destination_km"] / max_walk_distance_km)
-        drive_time = c["eta_minutes"] / max_drive_minutes
+        closeness = max(0.0, 1 - c["distance_to_destination_km"] / WALK_SCALE_KM)
+        drive_time = min(1.0, c["eta_minutes"] / DRIVE_SCALE_MIN)
 
         score = w1 * predicted_availability + w2 * closeness - w3 * drive_time
 

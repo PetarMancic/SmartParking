@@ -162,7 +162,7 @@ Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 19,3%,
 4. **Oracle je ponekad malo lošiji od modela.** Formula tretira dostupnost linearno (96% i 100% zauzetosti se jedva razlikuju), iako je pun parking zapravo neuspeh. Ideja za poboljšanje ili diskusiju: nelinearna kazna kad je predviđena zauzetost blizu kapaciteta, uz korišćenje MAE kao nesigurnosti.
 5. **Osetljivost pondera** (`eval_recommender_osetljivost.csv/.png`, w3 = 0, w2 = 1 − w1). Za gradske parkinge, pri w1 ≥ 0,7 rizik pada ispod 1% uz ~730 m hodanja. Kad su u igri i P&R, pri w1 > 0,6 sistem šalje 23–87% vozača na P&R. Trenutni ponderi (0.55/0.3/0.15) su u dobroj tački: 0% punih, ~0,95 km hodanja, ~3% na P&R. Pri planiranju 2 h unapred kriva modela je skoro na krivoj oracle-a, a naivna ostaje na ~2% i pri w1 = 1.
 
-*Napomena (2026-11-05): brojevi u ovom odeljku su sa starim trećim članom (heuristika „saobraćaj”). Od koraka 6a treći član je vreme vožnje do parkinga, a CSV-ovi i grafici u `ml/output/` su ponovo izračunati. Nove brojeve i poređenje vidi u koraku 6a. Glavna razlika: preporuka češće bira P&R (2,8% → 13,4%), ali onaj koji je vozaču usput. Konačni brojevi za rad biće iz koraka 6b (ponderi izabrani na oktobru, rezultati na novembru i decembru).*
+*Napomena (2026-11-05): brojevi u ovom odeljku su sa starim trećim članom (heuristika „saobraćaj”). Od koraka 6a treći član je vreme vožnje do parkinga, a CSV-ovi i grafici u `ml/output/` su ponovo izračunati. Nove brojeve i poređenje vidi u koraku 6a. Glavna razlika: preporuka češće bira P&R (2,8% → 13,4%), ali onaj koji je vozaču usput. Konačni brojevi za rad su iz koraka 6b (ponderi izabrani na oktobru, rezultati na novembru i decembru, fiksna normalizacija). Analiza osetljivosti iz zaključka 5 (w1/w2, na test periodu) je uklonjena iz koda i zamenjena izborom pondera u 6b.*
 
 **Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i `ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
 
@@ -310,7 +310,7 @@ Greška monotono pada i još ne staje između 6 i 11 meseci, pa bi više podatak
 
 Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća baš na najkraćem horizontu (+76% na 30 min). Jedan model kapacitet od 400 stabala dubine 6 deli na 31 horizont, a 30-min redovi su samo 1/31 treninga. Ablacija pokazuje isti efekat sa druge strane: na dugim horizontima trenutno stanje već smeta. **Moguće poboljšanje (nije urađeno):** hibrid, odnosno specijalizovani modeli za 30 min do 2 h i jedan model za ostale horizonte. Za rad je dovoljno navesti tradeoff i hibrid kao budući rad.
 
-### Korak 6 — Vreme vožnje umesto saobraćaja (u toku: 6a ✅, 6b–6d preostaju)
+### Korak 6 — Vreme vožnje umesto saobraćaja (u toku: 6a ✅, 6b ✅, 6c–6d preostaju)
 
 **Odluka mentora (4.11.2026):** saobraćaj ostaje budući rad, a treći član formule postaje vreme vožnje od polaska do parkinga. Argument za rad, rečima mentora: cilj treće komponente nije merenje saobraćaja, već procena troška dolaska do parkinga; vreme vožnje je direktnija mera tog troška i prirodno obuhvata saobraćaj kada takvi podaci postanu dostupni. Evaluacija sa 2000 vožnji je dovoljna; u radu je opisati kao **offline replay eksperiment** koji meri efikasnost algoritma preporuke (da li vozača upućuje na parking sa slobodnim mestima), a ne zadovoljstvo korisnika. Plan: 6a vreme vožnje u formuli, 6b izbor pondera na validacionom periodu, 6c prag punog parkinga (85/90/95%), 6d dokumentacija.
 
@@ -342,6 +342,65 @@ Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća
 2. **Više upućivanja na P&R (2,8% → 13,4%).** Stara heuristika je u stvari bila dodatna kazna za udaljenost od cilja, pa je odvraćala od svih P&R. Sada se P&R bira kad je usput i kad je centar pun (subota 40%, a radnim danom ujutru ih nema u vrhu). Da li je ovaj udeo „previše”, zavisi od kriterijuma izbora pondera. To je pitanje za 6b, ne za formulu.
 3. **Za gradske parkinge izmena malo pomaže** (2,6% → 2,2%), jer je vožnja do svih parkinga u centru skoro ista. Tu i dalje odlučuju dostupnost i blizina cilju. Hodanje je isto (~0,69 km).
 4. **Ograničenje primera iz dokumenta za mentora.** U primeru Bowthorpe → centar (sub 18.11.2017 10:00) Thickthorn se popeo sa 13. na 7. mesto, ali je Sprowston i dalje ispred njega (2. mesto). Razlog nije vreme vožnje, nego dostupnost: Sprowston je predviđen na 18%, a Thickthorn na 43%. Oba imaju dosta mesta, ali linearna dostupnost tu razliku od 25 p.p. vrednuje više nego 8 minuta kraće vožnje. Rečenica iz dokumenta („prednost bi dobio Thickthorn”) važi samo kad su oba parkinga podjednako slobodna. Pri istoj dostupnosti Thickthorn pobeđuje, ali tesno (razlika u skoru 0,013). Ovo je argument za 6b (koliko težine dati vremenu vožnje), a možda i za nelinearnu dostupnost (vidi korak 3, zaključak 4).
+
+*Napomena (6b): brojevi iz 6a su sa ručnim ponderima i relativnom normalizacijom, na celom test periodu. U 6b su promenjeni i normalizacija i ponderi, pa ih ne treba koristiti u radu; konačni brojevi su u 6b.*
+
+#### 6b — Izbor pondera na validacionom periodu ✅ (2026-11-05)
+
+**Postavka.** Test period modela je podeljen na dva dela:
+- **oktobar 2017** (2000 vozača, seme 43): samo za izbor pondera, `ml/select_weights.py`;
+- **novembar i 1.–5. decembar 2017** (2000 drugih vozača, seme 42): samo za konačne brojeve, `ml/eval_recommender.py`.
+
+Model je u oba slučaja onaj iz aplikacije, treniran pre 1.10.2017. Isprobane su sve kombinacije w1 + w2 + w3 = 1 sa korakom 0,05, ukupno 231. Bitan je samo odnos pondera, pa uslov „zbir 1” ne izostavlja nijednu.
+
+**Pravilo izbora** je dogovoreno sa autorom i upisano u kod **pre** gledanja rezultata:
+1. Zadržavaju se kombinacije čiji je udeo dolazaka na pun parking (≥ 95%) najviše 0,5 p.p. veći od najboljeg. Na ~2000 vožnji manje razlike su u granicama slučajnosti.
+2. Među njima se bira kombinacija sa najkraćim prosečnim ukupnim vremenom od polaska do cilja.
+
+Meri se XGBoost prognoza, svi parkinzi, sva vremena planiranja zajedno. Ukupno vreme je vožnja (30 km/h, prava linija), pa hodanje (5 km/h) do cilja, odnosno sa P&R čekanje autobusa (5 min) i autobus (20 km/h). **Ovo su pretpostavke, ne izmereni podaci.** Kazna za dolazak na pun parking nije uključena u vreme; to meri prvi korak pravila.
+
+**Prvi pokušaj i otkrivena mana (iskreno, za rad).** Prvi izbor, sa relativnom normalizacijom iz 6a (blizina i vožnja deljene najudaljenijim kandidatom u listi), dao je 0,30 / 0,65 / 0,05. Na novembru i decembru on je radio dobro sa svim parkinzima: 0,7% punih, 20,3 min, bez P&R. U scenariju „samo gradski” bio je, međutim, skoro beskoristan: **16,6% punih**, naspram 21,5% bez sistema i 3,0% sa ručnim ponderima.
+
+Uzrok je **relativna normalizacija**. Sa P&R u listi najudaljeniji kandidat je ~7 km od cilja, pa je 300 m razlike u hodanju malo. Bez P&R najudaljeniji je ~1,5 km, pa je istih 300 m mnogo. Isti ponderi su zato davali različit izbor između dva ista parkinga, u zavisnosti od toga koji su još parkinzi u listi. U aplikaciji se to dešava kad filter „radius” izbaci P&R. U teoriji višekriterijumskog odlučivanja ovo je poznat problem relativne normalizacije (*rank reversal*).
+
+**Ispravka:** fiksne skale, `blizina = 1 − hodanje/10 km`, `vreme_vožnje = vožnja/30 min` (`WALK_SCALE_KM`, `DRIVE_SCALE_MIN` u `backend/recommender.py`). Zatim je izbor ponovljen na oktobru po **istom** pravilu, uz informativni prikaz scenarija „samo gradski”, i jednom ponovo izmeren na novembru i decembru.
+
+**Napomena o poštenosti:** novembar i decembar su tako pogledani **dva puta**. Ispravka ima strukturni razlog (rang dva parkinga ne sme da zavisi od trećeg) i pravilo izbora nije menjano, ali to treba navesti u radu. Rezultati prvog pokušaja su sačuvani van repoa.
+
+**Izbor na oktobru** (`ml/output/izbor_pondera.csv`, `izbor_pondera_pareto.csv`, grafik `izbor_pondera.png`):
+
+| Ponderi (w1 / w2 / w3) | Pun pri dolasku | Vreme do cilja | Na P&R | Samo gradski: pun |
+|---|---|---|---|---|
+| **izabrano pravilom: 0,15 / 0,40 / 0,45** | 0,40% | 19,83 min | 9,1% | 0,57% |
+| drugo najbolje: 0,20 / 0,60 / 0,20 | 0,39% | 19,89 min | 0,0% | 0,39% |
+| treće: 0,25 / 0,75 / 0,00 | 0,32% | 19,96 min | 0,0% | 0,32% |
+| ručno (pre 6b): 0,55 / 0,30 / 0,15 | 0,00% | 22,33 min | 30,2% | 0,03% |
+
+**Provera pretpostavki** (`izbor_pondera_provera.csv`). Uz sporiji autobus (10 min čekanja, i 15 km/h) bira se 0,20 / 0,60 / 0,20 (0% na P&R). Uz vrlo brz autobus (3 min, 25 km/h) bira se 0,15 / 0,30 / 0,55, sa 43% na P&R. Uz strožu toleranciju (0,25 p.p.) bira se 0,25 / 0,65 / 0,10, a uz blažu (1 p.p.) 0,20 / 0,80 / 0,00. Vektorizovano bodovanje u skriptu daje isti izbor kao `recommender.score_candidates` u 7414/7414 odluka.
+
+**Konačni rezultati, novembar–decembar** (`ml/output/eval_recommender_strategije.csv`, `eval_recommender_subota_vrhunac.csv`). Ponderi 0,15 / 0,40 / 0,45; „ručni” znači 0,55 / 0,30 / 0,15 u istoj formuli; „pre 6b” je sistem iz 6a (ručni ponderi, relativna normalizacija), izmeren na istim vozačima u prvom pokušaju.
+
+| Strategija | Pun pri dolasku: odmah / 2 h / 4 h | Vreme do cilja | Na P&R |
+|---|---|---|---|
+| Najbliži destinaciji (bez sistema) | 21,5% / 21,5% / 16,6% | 16,9 min | 0% |
+| Preporuka, naivna prognoza | 0,7% / 6,0% / 9,2% | 19,9 min | 7–9% |
+| **Preporuka, XGBoost (aplikacija)** | **0,8% / 0,7% / 0,6%** | **20,0 min** | 9,5% |
+| Preporuka, savršena prognoza | 0,8% / 1,0% / 0,8% | 20,0 min | 9,5% |
+| Preporuka, XGBoost, ručni ponderi | 0,0% / 0,0% / 0,0% | 22,7 min | 30% |
+| Preporuka, XGBoost, pre 6b | 0,0% / 0,0% / 0,0% | 21,7 min | 12% |
+
+Samo gradski parkinzi: XGBoost 1,1% / 0,9% / 0,9% (20,3 min); ručni ponderi 0%; pre 6b 3,0% / 2,8% / 1,9%; najbliži 21,5%.
+
+Subota 11–16 h (138 vožnji): najbliži 68% punih. XGBoost 5,1% (polazak odmah) → 0% (4 h), 21,5 min, 20% na P&R. Ručni ponderi 0%, ali 27,8 min i 83% na P&R. Pre 6b 0%, 23,5 min, 42% na P&R. Samo gradski, subota: XGBoost 6,5%, pre 6b 13,0%.
+
+**Zaključci za rad:**
+1. **Kako su određeni ponderi:** pravilom zapisanim unapred, na posebnom validacionom periodu (oktobar), a mereni su na periodu koji izbor nije video (novembar–decembar). Na oktobru je izabrana kombinacija imala 0,40% punih, a na novembru i decembru 0,6–0,9%. Novembar i decembar su teži period (najbliži parking pun u 21,5% slučajeva, praznična kupovina), pa je mali pad očekivan.
+2. **Da li bi druga kombinacija bila bolja:** oko izabrane postoji **ravan deo**. Tri najbolje kombinacije se razlikuju za manje od 0,1 p.p. rizika i ~8 sekundi vremena, pa tačne vrednosti pondera nisu presudne. Presudno je da dostupnost ima dovoljnu težinu u odnosu na blizinu (uz w1 = 0 i jaku blizinu rizik je do 16%, skoro kao bez sistema; uz w1 = 0,05 do 11%) i da normalizacija bude fiksna. Pareto kriva (`izbor_pondera.png`) pokazuje kompromis: manje rizika košta više vremena, ručni ponderi su na ravnom delu, ali ~2,5 min sporiji jer šalju 30% vozača na P&R.
+3. **Šta je pravilo izabralo, u rečima:** sistem daje prednost kraćem putu i prihvata mali rizik (< 1%). Ručni ponderi su potpuno izbegavali rizik slanjem vozača na P&R, što košta 2,7 min po vožnji, a subotom 6 min i 83% vozača u autobusu. Da li je bolji 0% rizika ili kraći put je vrednosni izbor. Pravilo ga čini eksplicitnim (tolerancija 0,5 p.p.), a provera pokazuje šta bi izabrala stroža tolerancija.
+4. **Ponderi se ne čitaju kao „važnost” komponenti**, jer zavise od skale. Bolje je preko kompromisa: 1 km manje hodanja (0,04 skora) vredi koliko i 27 p.p. zauzetosti, a 1 min kraće vožnje (0,015) koliko i 10 p.p. Zbog toga je w3 = 0,45 najveći broj, iako vožnja ne „preovlađuje”.
+5. **Vrednost ML prognoze i dalje raste sa vremenom planiranja:** za polazak odmah naivna prognoza je jednako dobra (0,7% naspram 0,8%), ali za 2–4 h unapred naivna dovodi na pun parking u 6–9% slučajeva, a XGBoost u 0,6–0,7%. XGBoost je na nivou savršene prognoze.
+6. **Poređenje sa najbližim parkingom po vremenu nije fer,** jer vreme ne uključuje traženje novog mesta kad je parking pun. Najbliži je pun u 21,5% slučajeva; uz pretpostavljenih 15 min za traženje, njegovo očekivano vreme bi bilo ~20 min, isto kao uz preporuku.
+7. **Ograničenje:** izbor zavisi od pretpostavki o P&R autobusu. Uz sporiji autobus P&R se praktično ne preporučuje, a uz vrlo brz šalje se 43% vozača. Pravi red vožnje P&R autobusa u Norwichu bi ovo preciziralo (budući rad).
 
 #### Istorija (pre odluke mentora)
 

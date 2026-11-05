@@ -1,12 +1,19 @@
 """
-Korak 3 (PLAN_ZAVRSETKA.md) - evaluacija PREPORUKE simulacijom vozaca nad
-test periodom (1.10.-5.12.2017, podaci koje model nije video pri treningu).
+Korak 3 (PLAN_ZAVRSETKA.md) - evaluacija PREPORUKE simulacijom vozaca
+(offline replay eksperiment) nad podacima koje model nije video pri treningu.
 
 Pitanje: da li preporuka zaista pomaze vozacu - koliko cesto stigne na pun
-parking i koliko mora da hoda, u poredjenju sa jednostavnim strategijama?
+parking i koliko mu treba do cilja, u poredjenju sa jednostavnim strategijama?
+Meri se efikasnost algoritma u pronalazenju slobodnih mesta, a ne zadovoljstvo
+korisnika.
+
+Podela (korak 6b): test period modela (1.10.-5.12.2017) je podeljen na dva
+dela. Oktobar sluzi SAMO za izbor pondera (ml/select_weights.py), a konacni
+brojevi se mere ovde, na novembru i decembru (FINAL_TEST_PERIOD), sa drugim
+vozacima. Tako izbor pondera nije podesen na podatke na kojima se meri.
 
 Postupak:
-1. Generise se N_TRIPS vozaca: nasumican trenutak u test periodu (pon-sub,
+1. Generise se N_TRIPS vozaca: nasumican trenutak u periodu (pon-sub,
    08:00-19:30), polazak na 3-8 km od centra Norwicha, destinacija u krugu od
    1,2 km oko centra. Svaki vozac se posmatra za vise "vremena planiranja"
    (LEAD_TIMES_MIN): 0 = krece odmah, 60 = planira sat unapred, itd.
@@ -14,15 +21,17 @@ Postupak:
    (prava linija, 30 km/h, zaokruzeno na 30-min mrezu).
 3. Strategije biraju jedan parking; ishod se meri na STVARNOJ zauzetosti u
    trenutku dolaska:
-     - najblizi:  najblizi parking destinaciji (vozac bez sistema)
-     - nasumicno: nasumican parking (donja granica)
-     - naivna:    nasa formula, ali prognoza = "ostaje kao sada"
-     - model:     nasa formula sa XGBoost prognozom (ono sto API radi)
-     - oracle:    nasa formula sa savrsenom prognozom (gornja granica)
+     - najblizi:    najblizi parking destinaciji (vozac bez sistema)
+     - nasumicno:   nasumican parking (donja granica)
+     - naivna:      nasa formula, ali prognoza = "ostaje kao sada"
+     - model:       nasa formula sa XGBoost prognozom (ono sto API radi)
+     - oracle:      nasa formula sa savrsenom prognozom (gornja granica)
+     - model_rucni: kao "model", ali sa rucno izabranim ponderima
+                    0.55/0.3/0.15 (pre koraka 6b), radi poredjenja
    naivna/model/oracle koriste ISTU funkciju bodovanja kao API
    (recommender.score_candidates) - razlikuju se samo u prognozi.
-4. Analiza osetljivosti pondera: w1 (dostupnost) od 0 do 1, w2 = 1 - w1,
-   w3 (vreme voznje do parkinga) = 0.
+4. Pored punog parkinga meri se i ukupno vreme od polaska do cilja
+   (door_to_door_minutes): voznja + hodanje, odnosno autobus sa P&R.
 
 Ogranicenja (upisati u rad):
 - Nedelja je izostavljena: P&R parkinzi nedeljom ne rade, pa im je zauzetost 0
@@ -37,11 +46,14 @@ Ogranicenja (upisati u rad):
   postoji i scenario "samo gradski parkinzi".
 - Vreme voznje (dolazak i treca komponenta skora) racuna se po pravoj liniji
   pri 30 km/h, bez stvarne mreze puteva i saobracaja.
+- Ukupno vreme do cilja koristi pretpostavke (WALK_SPEED_KMH, BUS_WAIT_MIN,
+  BUS_SPEED_KMH), a ne izmerene podatke; kazna za dolazak na pun parking nije
+  ukljucena (to meri pun_95_pct).
 
 Pokretanje (iz korena projekta):
     python ml/eval_recommender.py
 
-Traje ~7 min (vecinu vremena odnosi ~72 hiljade predikcija modela).
+Traje ~7 min (vecinu vremena odnosi ~70 hiljada predikcija modela).
 Rezultati: ml/output/eval_recommender_*.csv i *.png.
 """
 
@@ -72,17 +84,44 @@ DESTINATION_RADIUS_KM = 1.2
 FIRST_SLOT, LAST_SLOT = "08:00", "19:30"
 LEAD_TIMES_MIN = [0, 60, 120, 240]
 FULL_THRESHOLDS = (0.95, 0.90)
-WEIGHT_SWEEP_W1 = [round(w, 1) for w in np.arange(0.0, 1.01, 0.1)]
-SWEEP_LEAD_TIMES_MIN = [0, 120]
+
+# Podela test perioda modela (vidi docstring). Kraj je iskljucen.
+VALIDATION_PERIOD = (pd.Timestamp("2017-10-01"), pd.Timestamp("2017-11-01"))
+FINAL_TEST_PERIOD = (pd.Timestamp("2017-11-01"), CITY_CONFIGS[CITY]["test_end"])
+
+# Pretpostavke za ukupno vreme od polaska do cilja (nisu izmerene - u radu ih
+# navesti kao pretpostavke; ml/select_weights.py proverava i sporiji autobus).
+WALK_SPEED_KMH = 5.0
+BUS_WAIT_MIN = 5.0  # prosecno cekanje P&R autobusa
+BUS_SPEED_KMH = 20.0  # P&R autobus do cilja, po pravoj liniji
 
 DEFAULT_WEIGHTS = (
     recommender.W1_PREDICTED_AVAILABILITY,
     recommender.W2_PROXIMITY,
     recommender.W3_DRIVE_TIME,
 )
-STRATEGIES = ["najblizi", "nasumicno", "naivna", "model", "oracle"]
+# Ponderi koji su bili izabrani rucno, pre koraka 6b - samo za poredjenje.
+HAND_PICKED_WEIGHTS = (0.55, 0.3, 0.15)
+STRATEGIES = ["najblizi", "nasumicno", "naivna", "model", "oracle", "model_rucni"]
 # Koja prognoza zauzetosti ulazi u formulu za svaku "pametnu" strategiju.
-FORECAST_KEY = {"naivna": "rate_now", "model": "rate_model", "oracle": "rate_actual"}
+FORECAST_KEY = {"naivna": "rate_now", "model": "rate_model", "oracle": "rate_actual", "model_rucni": "rate_model"}
+WEIGHTS_OVERRIDE = {"model_rucni": HAND_PICKED_WEIGHTS}
+
+
+def door_to_door_minutes(
+    eta_minutes: float,
+    distance_to_destination_km: float,
+    p_and_r: bool,
+    bus_wait_min: float = BUS_WAIT_MIN,
+    bus_speed_kmh: float = BUS_SPEED_KMH,
+) -> float:
+    """Ukupno vreme od polaska do cilja: voznja do parkinga, pa peske (gradski
+    parking) ili autobusom (P&R) do cilja."""
+    if p_and_r:
+        last_leg = bus_wait_min + distance_to_destination_km / bus_speed_kmh * 60.0
+    else:
+        last_leg = distance_to_destination_km / WALK_SPEED_KMH * 60.0
+    return eta_minutes + last_leg
 
 
 def _point_at(center: tuple[float, float], distance_km: float, bearing_rad: float) -> tuple[float, float]:
@@ -91,10 +130,9 @@ def _point_at(center: tuple[float, float], distance_km: float, bearing_rad: floa
     return lat, lng
 
 
-def generate_trips(rng: np.random.Generator) -> pd.DataFrame:
-    test_start = CITY_CONFIGS[CITY]["test_start"]
-    test_end = CITY_CONFIGS[CITY]["test_end"]
-    days = [d for d in pd.date_range(test_start, test_end, freq="D", inclusive="left") if d.dayofweek < 6]
+def generate_trips(rng: np.random.Generator, period: tuple[pd.Timestamp, pd.Timestamp]) -> pd.DataFrame:
+    start, end = period
+    days = [d for d in pd.date_range(start, end, freq="D", inclusive="left") if d.dayofweek < 6]
     slots = pd.timedelta_range(FIRST_SLOT + ":00", LAST_SLOT + ":00", freq="30min")
 
     trips = []
@@ -185,6 +223,7 @@ def choose(group: list[dict], strategy: str, weights, rng: np.random.Generator) 
         return group[rng.integers(len(group))]
 
     forecast_key = FORECAST_KEY[strategy]
+    weights = WEIGHTS_OVERRIDE.get(strategy, weights)
     candidates = [
         {
             "option": c,
@@ -218,6 +257,9 @@ def simulate(groups: list[list[dict]], strategies: list[str], weights, seed: int
                     "walk_km": chosen["distance_to_destination_km"],
                     "drive_km": chosen["distance_to_origin_km"],
                     "drive_min": chosen["eta_minutes"],
+                    "door_to_door_min": door_to_door_minutes(
+                        chosen["eta_minutes"], chosen["distance_to_destination_km"], chosen["p_and_r"]
+                    ),
                     "actual_rate": chosen["rate_actual"],
                 }
             )
@@ -234,6 +276,7 @@ def summarize(outcomes: pd.DataFrame, by: list[str]) -> pd.DataFrame:
                 "hodanje_km": g["walk_km"].mean(),
                 "voznja_km": g["drive_km"].mean(),
                 "voznja_min": g["drive_min"].mean(),
+                "vreme_do_cilja_min": g["door_to_door_min"].mean(),
                 "zauzetost_pri_dolasku_pct": 100 * g["actual_rate"].mean(),
                 # samo pravi Park & Ride (B&Q Boundary Road je tip "ostalo")
                 "p_and_r_pct": 100 * g["p_and_r"].astype(bool).mean(),
@@ -330,43 +373,12 @@ def plot_lead_times(main_table: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def plot_tradeoff(sweep: pd.DataFrame) -> None:
-    """Kompromis rizik punog parkinga / hodanje pri promeni pondera w1
-    (dostupnost) naspram w2 = 1 - w1 (blizina). Samo gradski parkinzi - sa P&R
-    "hodanje" od 4-5 km nije realno hodanje (ide se autobusom)."""
-    import matplotlib.pyplot as plt
-
-    data = sweep[sweep["scenario"] == "samo_gradski"]
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharey=True)
-    for ax, lead in zip(axes, SWEEP_LEAD_TIMES_MIN):
-        lead_data = data[data["lead_min"] == lead]
-        for strategy in ["naivna", "model", "oracle"]:
-            style = PLOT_STYLE[strategy]
-            s = lead_data[lead_data["strategy"] == strategy].sort_values("w1")
-            ax.plot(
-                s["hodanje_km"] * 1000, s["pun_95_pct"], color=style["color"], marker=style["marker"],
-                linestyle=style["linestyle"], linewidth=2, markersize=5, label=style["label"],
-                **_marker_fill(strategy),
-            )
-        # Oznake w1 samo na krivoj modela - selektivno, ne na svakoj tacki.
-        model = lead_data[lead_data["strategy"] == "model"].sort_values("w1")
-        for _, row in model.iterrows():
-            if row["w1"] in (0.0, 0.3, 0.5, 0.7, 1.0):
-                ax.annotate(
-                    f"w1={row['w1']:.1f}", (row["hodanje_km"] * 1000, row["pun_95_pct"]),
-                    xytext=(5, 5), textcoords="offset points", fontsize=8, color=INK,
-                )
-        title = "Polazak odmah" if lead == 0 else f"Planiranje {lead // 60} h unapred"
-        ax.set_title(f"{title} · samo gradski parkinzi", fontsize=10, color=INK, loc="left")
-        ax.set_xlabel("Prosečno hodanje do destinacije (m)", fontsize=9, color=MUTED)
-        _style_axes(ax)
-    axes[0].set_ylabel("Dolazak na pun parking (≥95%), % vožnji", fontsize=9, color=MUTED)
-    axes[0].set_ylim(bottom=-0.6)  # linija na 0% da se ne lepi za osu
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False, fontsize=9)
-    fig.tight_layout(rect=(0, 0.08, 1, 1))
-    _save(fig, "eval_recommender_osetljivost.png")
-    plt.close(fig)
+def recommendable_parks() -> list[dict]:
+    """Isti kandidati kao u API-ju: sa koordinatama i tipom koji se preporucuje."""
+    return [
+        p for p in parks_module.load_parks(CITY)
+        if p["lat"] is not None and p["type"] in recommender.RECOMMENDABLE_TYPES
+    ]
 
 
 def main() -> None:
@@ -375,13 +387,12 @@ def main() -> None:
 
     print("Ucitavam podatke i model...")
     source = ReplaySource(city=CITY)
-    # Isti kandidati kao u API-ju: sa koordinatama i tipom koji se preporucuje.
-    parks = [
-        p for p in parks_module.load_parks(CITY)
-        if p["lat"] is not None and p["type"] in recommender.RECOMMENDABLE_TYPES
-    ]
-    trips = generate_trips(rng)
-    print(f"{len(trips)} vozaca, {len(parks)} parkinga sa koordinatama, vremena planiranja {LEAD_TIMES_MIN} min")
+    parks = recommendable_parks()
+    trips = generate_trips(rng, FINAL_TEST_PERIOD)
+    print(
+        f"{len(trips)} vozaca ({FINAL_TEST_PERIOD[0].date()} - {FINAL_TEST_PERIOD[1].date()}, bez kraja), "
+        f"{len(parks)} parkinga, vremena planiranja {LEAD_TIMES_MIN} min, ponderi {DEFAULT_WEIGHTS}"
+    )
 
     print("Racunam dolaske i predikcije...")
     options = build_options(trips, source, parks)
@@ -411,35 +422,20 @@ def main() -> None:
     main_table.to_csv(os.path.join(OUTPUT_DIR, "eval_recommender_strategije.csv"), index=False)
     peak_table.to_csv(os.path.join(OUTPUT_DIR, "eval_recommender_subota_vrhunac.csv"), index=False)
 
-    # 2) Osetljivost pondera (w3 = 0, w2 = 1 - w1), za polazak odmah i za
-    #    planiranje 2h unapred - tu se prognoze najvise razlikuju.
-    sweep_rows = []
-    for name, groups in scenarios.items():
-        for lead in SWEEP_LEAD_TIMES_MIN:
-            lead_groups = [g for g in groups if g[0]["lead_min"] == lead]
-            for w1 in WEIGHT_SWEEP_W1:
-                weights = (w1, round(1 - w1, 1), 0.0)
-                outcomes = simulate(lead_groups, ["naivna", "model", "oracle"], weights, SEED)
-                table = summarize(outcomes, ["strategy"])
-                table.insert(0, "w1", w1)
-                table.insert(0, "lead_min", lead)
-                table.insert(0, "scenario", name)
-                sweep_rows.append(table)
-    sweep = pd.concat(sweep_rows, ignore_index=True)
-    sweep.to_csv(os.path.join(OUTPUT_DIR, "eval_recommender_osetljivost.csv"), index=False)
+    # Osetljivost pondera i njihov izbor su u ml/select_weights.py (korak 6b,
+    # na validacionom periodu), a ne ovde - ovde se samo meri.
 
     pd.set_option("display.width", 200)
-    cols = ["scenario", "lead_min", "strategy", "n", "pun_95_pct", "pun_90_pct", "hodanje_km", "voznja_min", "p_and_r_pct"]
-    print("\n=== Strategije (podrazumevani ponderi", DEFAULT_WEIGHTS, ") ===")
+    cols = [
+        "scenario", "lead_min", "strategy", "n", "pun_95_pct", "pun_90_pct",
+        "hodanje_km", "voznja_min", "vreme_do_cilja_min", "p_and_r_pct",
+    ]
+    print("\n=== Strategije (ponderi", DEFAULT_WEIGHTS, ") ===")
     print(main_table[cols].to_string(index=False))
     print("\n=== Subota 11-16h ===")
     print(peak_table[cols].to_string(index=False))
-    print("\n=== Osetljivost pondera (w3=0) ===")
-    sweep_cols = ["scenario", "lead_min", "w1", "strategy", "pun_95_pct", "hodanje_km", "p_and_r_pct"]
-    print(sweep[sweep_cols].to_string(index=False))
 
     plot_lead_times(main_table)
-    plot_tradeoff(sweep)
 
 
 if __name__ == "__main__":
