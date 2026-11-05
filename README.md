@@ -200,14 +200,16 @@ curl -X POST "http://127.0.0.1:8000/simulation/start?speed=100"
 curl "http://127.0.0.1:8000/state?target_time=2017-10-10T17:00:00"
 ```
 
-**Preporuka** (`recommender.py`): `skor = w1·dostupnost + w2·blizina − w3·saobraćaj`
+**Preporuka** (`recommender.py`): `skor = w1·dostupnost + w2·blizina − w3·vreme_vožnje`
 (w1=0.55, w2=0.3, w3=0.15, konstante na vrhu fajla). `blizina` meri hodanje od parkinga
-do destinacije. Vreme dolaska se procenjuje po pravoj liniji od polaska pri 30 km/h, a
-računa se od `departure_time` ako je dat, inače od simuliranog „sada”. Za to vreme se
-pravi predikcija. `saobraćaj` je jednostavna heuristika (vršni sat + udaljenost), ne
-pravi podatak, jer dataset nema saobraćajne podatke. Analiza je pokazala da ona zapravo
-ne meri saobraćaj, pa odluka čeka mentora (vidi „Ograničenja”). Preporučuju se samo
-parkinzi tipa „grad” i „Park & Ride” (`RECOMMENDABLE_TYPES`).
+do destinacije, a `vreme_vožnje` vožnju od polaska do parkinga, odnosno trošak dolaska
+do parkinga. Obe su normalizovane na 0–1 u odnosu na najudaljenijeg kandidata. Vreme
+vožnje se procenjuje po pravoj liniji pri 30 km/h. Ista procena daje i vreme dolaska,
+koje se računa od `departure_time` ako je dat, inače od simuliranog „sada”, i za njega
+se pravi predikcija. Do 5.11.2026. treći član je bio heuristika „saobraćaj”, koja
+zapravo nije merila saobraćaj; zamenjena je po odluci mentora (vidi „Ograničenja” i
+`PROGRESS.md`). Preporučuju se samo parkinzi tipa „grad” i „Park & Ride”
+(`RECOMMENDABLE_TYPES`).
 
 ## Frontend (`frontend/app/`)
 
@@ -241,10 +243,11 @@ parkinzi tipa „grad” i „Park & Ride” (`RECOMMENDABLE_TYPES`).
   Wayback Machine arhivirao 2016, 2018. i 2024. Sva tri snimka daju isto uparivanje, a
   kapaciteti se poklapaju sa podacima. Do 28.10.2026. samo 9 parkinga je imalo
   koordinate (iz poštanskog broja), a 6 je bilo bez lokacije; vidi `PROGRESS.md`.
-- **Saobraćaj u skoru preporuke je heuristika**, ne pravi podatak (dataset ga nema).
-  Deo za vršne sate ne menja redosled preporuka, a deo za udaljenost je zapravo dodatna
-  kazna za udaljenost. Da li saobraćaj ostaje budući rad, i šta tada sa w3, čeka odgovor
-  mentora (`../ZA_MENTORA.md`, `../PLAN_ZAVRSETKA.md`, korak 6).
+- **Saobraćaj nije u modelu ni u preporuci** (dataset ga nema, a istorijski podaci za
+  ulice u centru Norwicha nisu javno dostupni). To je budući rad, po dogovoru sa
+  mentorom. Treći član skora je vreme vožnje do parkinga, procenjeno po pravoj liniji
+  pri 30 km/h, bez mreže puteva i saobraćaja. Sa pravim podacima o saobraćaju menjala
+  bi se samo ta procena, a formula bi ostala ista.
 - **Evaluacija preporuke je simulacija na istorijskim podacima** (izmišljeni vozači,
   stvarna zauzetost pri dolasku). Nedelja je izostavljena (P&R ne rade), a vreme
   dolaska je procena po pravoj liniji.

@@ -150,13 +150,13 @@ function getRecommendationReasons(recommendation: Recommendation, radiusMeters: 
 }
 
 // Delovi skora tacno kako ih racuna backend (recommender.score_candidates):
-// skor = w1*dostupnost + w2*blizina - w3*saobracaj, svaka vrednost u 0-1.
+// skor = w1*dostupnost + w2*blizina - w3*vreme_voznje, svaka vrednost u 0-1.
 function getScoreParts(recommendation: Recommendation) {
-  const { predicted_availability, closeness, traffic, weights } = recommendation.score_components;
+  const { predicted_availability, closeness, drive_time, weights } = recommendation.score_components;
   return [
     { label: "Dostupnost", value: predicted_availability, weight: weights.w1_predicted_availability, sign: "+", barClass: "bg-free" },
     { label: "Blizina cilju", value: closeness, weight: weights.w2_proximity, sign: "+", barClass: "bg-primary" },
-    { label: "Saobraćaj", value: traffic, weight: weights.w3_traffic, sign: "−", barClass: "bg-ink-subtle" },
+    { label: "Vreme vožnje", value: drive_time, weight: weights.w3_drive_time, sign: "−", barClass: "bg-ink-subtle" },
   ];
 }
 
@@ -795,7 +795,7 @@ export default function Home() {
             className="scroll-mt-4 lg:scroll-mt-24"
             title="Top preporuke za cilj"
             icon={Sparkles}
-            subtitle="Dostupnost pri dolasku, blizina cilju, saobraćaj"
+            subtitle="Dostupnost pri dolasku, blizina cilju, vreme vožnje"
             action={<CountBadge count={recommendations.length} />}
           >
             <div aria-live="polite" aria-busy={recommendationLoading}>
@@ -925,7 +925,7 @@ export default function Home() {
               )}
               {weights && !recommendationLoading && recommendations.length > 0 && (
                 <p className="mt-3 border-t border-border pt-3 font-mono text-[11px] text-ink-muted">
-                  skor = {weights.w1_predicted_availability}·dostupnost + {weights.w2_proximity}·blizina − {weights.w3_traffic}·saobraćaj
+                  skor = {weights.w1_predicted_availability}·dostupnost + {weights.w2_proximity}·blizina − {weights.w3_drive_time}·vreme vožnje
                 </p>
               )}
             </div>

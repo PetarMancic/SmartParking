@@ -106,12 +106,13 @@ smart-parking/
   holiday, carpark, capacity, horizon_minutes`. Greška je MAE 4,83 p.p. ukupno, a
   2,87 na 30 min. Kad `y_lastweek` fali, `backend/predictor.py` uzima isti termin
   14 dana ranije.
-- **Preporuka:** `skor = w1·dostupnost + w2·blizina_destinaciji − w3·saobraćaj`
-  (`backend/recommender.py`). Ponderi su konstante na vrhu fajla (0.55/0.3/0.15).
-  Dostupnost se računa za procenjeno vreme dolaska. Bodovanje je u čistoj funkciji
-  `score_candidates()`, koju koriste i API i evaluacija.
-- **Saobraćaj (w3):** dataset ga nema. Trenutna heuristika ne meri saobraćaj (vidi
-  `../ZA_MENTORA.md`, 3.1). Odluka čeka mentora (korak 6), pa do tada ne menjati.
+- **Preporuka:** `skor = w1·dostupnost + w2·blizina_destinaciji − w3·vreme_vožnje`
+  (`backend/recommender.py`). Ponderi su konstante na vrhu fajla (0.55/0.3/0.15;
+  biraju se ponovo u koraku 6b). Dostupnost se računa za procenjeno vreme dolaska.
+  Bodovanje je u čistoj funkciji `score_candidates()`, koju koriste i API i evaluacija.
+- **Saobraćaj:** dataset ga nema, pa je budući rad (odluka mentora, 4.11.2026). Treći
+  član skora je vreme vožnje od polaska do parkinga (trošak dolaska do parkinga), a
+  ne saobraćaj.
 - **Evaluacija:** `ml/eval_recommender.py` (~7 min), `ml/compare_models.py` (~3 min),
   `ml/analyze_model.py` (~10 min). Izlazi su u `ml/output/`. Posle izmene prediktora
   ili preporuke ponovo pokrenuti evaluaciju i ažurirati brojeve u `PROGRESS.md`.

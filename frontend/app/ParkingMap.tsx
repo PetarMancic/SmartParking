@@ -53,12 +53,12 @@ export type Recommendation = {
   distance_to_destination_km: number;
   score: number;
   // Delovi skora iz backend/recommender.py (score_candidates):
-  // skor = w1*predicted_availability + w2*closeness - w3*traffic
+  // skor = w1*predicted_availability + w2*closeness - w3*drive_time
   score_components: {
     predicted_availability: number;
     closeness: number;
-    traffic: number;
-    weights: { w1_predicted_availability: number; w2_proximity: number; w3_traffic: number };
+    drive_time: number;
+    weights: { w1_predicted_availability: number; w2_proximity: number; w3_drive_time: number };
   };
 };
 

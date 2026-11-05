@@ -22,7 +22,7 @@ Postupak:
    naivna/model/oracle koriste ISTU funkciju bodovanja kao API
    (recommender.score_candidates) - razlikuju se samo u prognozi.
 4. Analiza osetljivosti pondera: w1 (dostupnost) od 0 do 1, w2 = 1 - w1,
-   w3 (saobracaj) = 0.
+   w3 (vreme voznje do parkinga) = 0.
 
 Ogranicenja (upisati u rad):
 - Nedelja je izostavljena: P&R parkinzi nedeljom ne rade, pa im je zauzetost 0
@@ -35,6 +35,8 @@ Ogranicenja (upisati u rad):
   predikciju) i u trenutku dolaska (inace ishod ne moze da se izmeri).
 - "Hodanje" do P&R parkinga je ~4-5 km - u stvarnosti se ide autobusom. Zato
   postoji i scenario "samo gradski parkinzi".
+- Vreme voznje (dolazak i treca komponenta skora) racuna se po pravoj liniji
+  pri 30 km/h, bez stvarne mreze puteva i saobracaja.
 
 Pokretanje (iz korena projekta):
     python ml/eval_recommender.py
@@ -76,7 +78,7 @@ SWEEP_LEAD_TIMES_MIN = [0, 120]
 DEFAULT_WEIGHTS = (
     recommender.W1_PREDICTED_AVAILABILITY,
     recommender.W2_PROXIMITY,
-    recommender.W3_TRAFFIC,
+    recommender.W3_DRIVE_TIME,
 )
 STRATEGIES = ["najblizi", "nasumicno", "naivna", "model", "oracle"]
 # Koja prognoza zauzetosti ulazi u formulu za svaku "pametnu" strategiju.
@@ -142,6 +144,7 @@ def build_options(trips: pd.DataFrame, source: ReplaySource, parks: list[dict]) 
                         "p_and_r": park["type"] == "Park & Ride",
                         "distance_to_origin_km": d_origin,
                         "distance_to_destination_km": d_dest,
+                        "eta_minutes": eta_minutes,
                         "horizon_steps": steps,
                         "rate_now": history.get(trip.now, np.nan),
                         "rate_actual": history.get(target, np.nan),
@@ -187,10 +190,11 @@ def choose(group: list[dict], strategy: str, weights, rng: np.random.Generator) 
             "option": c,
             "availability_score": 1 - c[forecast_key],
             "distance_to_destination_km": c["distance_to_destination_km"],
+            "eta_minutes": c["eta_minutes"],
         }
         for c in group
     ]
-    best = recommender.score_candidates(candidates, group[0]["now"].hour, weights)[0]
+    best = recommender.score_candidates(candidates, weights)[0]
     return best["option"]
 
 
@@ -213,6 +217,7 @@ def simulate(groups: list[list[dict]], strategies: list[str], weights, seed: int
                     "p_and_r": chosen["p_and_r"],
                     "walk_km": chosen["distance_to_destination_km"],
                     "drive_km": chosen["distance_to_origin_km"],
+                    "drive_min": chosen["eta_minutes"],
                     "actual_rate": chosen["rate_actual"],
                 }
             )
@@ -228,6 +233,7 @@ def summarize(outcomes: pd.DataFrame, by: list[str]) -> pd.DataFrame:
                 "pun_90_pct": 100 * (g["actual_rate"] >= FULL_THRESHOLDS[1]).mean(),
                 "hodanje_km": g["walk_km"].mean(),
                 "voznja_km": g["drive_km"].mean(),
+                "voznja_min": g["drive_min"].mean(),
                 "zauzetost_pri_dolasku_pct": 100 * g["actual_rate"].mean(),
                 # samo pravi Park & Ride (B&Q Boundary Road je tip "ostalo")
                 "p_and_r_pct": 100 * g["p_and_r"].astype(bool).mean(),
@@ -423,7 +429,7 @@ def main() -> None:
     sweep.to_csv(os.path.join(OUTPUT_DIR, "eval_recommender_osetljivost.csv"), index=False)
 
     pd.set_option("display.width", 200)
-    cols = ["scenario", "lead_min", "strategy", "n", "pun_95_pct", "pun_90_pct", "hodanje_km", "voznja_km", "p_and_r_pct"]
+    cols = ["scenario", "lead_min", "strategy", "n", "pun_95_pct", "pun_90_pct", "hodanje_km", "voznja_min", "p_and_r_pct"]
     print("\n=== Strategije (podrazumevani ponderi", DEFAULT_WEIGHTS, ") ===")
     print(main_table[cols].to_string(index=False))
     print("\n=== Subota 11-16h ===")

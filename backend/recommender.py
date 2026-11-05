@@ -2,12 +2,21 @@
 Modul za preporuku parkinga (CLAUDE.md princip: predikcija i preporuka su
 odvojeni moduli; preporuka je ponderisano rangiranje, NE ML).
 
-    skor = w1 * predvidjena_dostupnost + w2 * blizina_destinaciji - w3 * saobracaj
+    skor = w1 * predvidjena_dostupnost + w2 * blizina_destinaciji - w3 * vreme_voznje
 
 `blizina_destinaciji` meri koliko vozac hoda od parkinga do cilja (ranije je
 merila udaljenost od polaska, sto je moglo da preporuci parking blizu polaska
-a daleko od cilja - promenjeno 2026-10-26, vidi PROGRESS.md). Udaljenost od
-polaska se i dalje koristi za procenu vremena dolaska (horizont predikcije).
+a daleko od cilja - promenjeno 2026-10-26, vidi PROGRESS.md).
+
+`vreme_voznje` je procenjeno vreme voznje od polaska do parkinga, odnosno
+trosak dolaska do parkinga. Zamenilo je heuristiku "saobracaj" (odluka mentora,
+4.11.2026, vidi PROGRESS.md). Ta heuristika nije merila saobracaj: deo za vrsne
+sate je bio isti za sve parkinge, a deo za udaljenost je kaznjavao udaljenost od
+cilja, koju vec meri blizina. Dve komponente mere dva razlicita dela puta:
+blizina deo od parkinga do cilja (peske), a vreme voznje deo od polaska do
+parkinga (kolima). Zato sistem vise ne salje vozaca na parking na suprotnoj
+strani grada. Podaci o saobracaju bi kasnije menjali samo procenu vremena
+voznje (`eta_minutes`), a formula bi ostala ista.
 
 Predikcija se radi za procenjeno vreme DOLASKA do parkinga, po poglavlju 6
 MASTER_PLAN.md ("ako koristi zauzetost, treba da koristi predvidjenu
@@ -32,7 +41,7 @@ from backend.simulator import SimulationClock
 # Ponderi - konstante, lako izmenljive radi eksperimentisanja.
 W1_PREDICTED_AVAILABILITY = 0.55
 W2_PROXIMITY = 0.3
-W3_TRAFFIC = 0.15
+W3_DRIVE_TIME = 0.15
 
 TOP_N_DEFAULT = 5
 
@@ -42,7 +51,8 @@ TOP_N_DEFAULT = 5
 RECOMMENDABLE_TYPES = {"grad", "Park & Ride"}
 
 # Nema ruting API-ja na backendu (frontend to radi preko OSRM-a za prikaz
-# rute) - gruba procena vremena dolaska samo da se izabere horizont predikcije.
+# rute) - gruba procena vremena voznje po pravoj liniji. Koristi se za horizont
+# predikcije (kada vozac stize) i za komponentu "vreme voznje" u skoru.
 ASSUMED_DRIVE_SPEED_KMH = 30.0
 
 
@@ -61,12 +71,6 @@ def _horizon_steps_for_arrival(now: pd.Timestamp, arrival_time: pd.Timestamp) ->
     diff_minutes = (arrival_time - now).total_seconds() / 60
     steps = max(1, round(diff_minutes / 30))
     return min(steps, predictor.max_horizon_steps())
-
-
-def _traffic_density_score(distance_km: float, hour: int) -> float:
-    peak_hour_penalty = 0.25 if (7 <= hour <= 9 or 16 <= hour <= 19) else 0.0
-    proximity_penalty = min(0.35, distance_km / 10.0)
-    return min(1.0, peak_hour_penalty + proximity_penalty)
 
 
 def recommend_parks(
@@ -121,32 +125,36 @@ def recommend_parks(
             }
         )
 
-    return score_candidates(candidates, now.hour)[:top_n]
+    return score_candidates(candidates)[:top_n]
 
 
 def score_candidates(
     candidates: list[dict],
-    hour: int,
-    weights: tuple[float, float, float] = (W1_PREDICTED_AVAILABILITY, W2_PROXIMITY, W3_TRAFFIC),
+    weights: tuple[float, float, float] = (W1_PREDICTED_AVAILABILITY, W2_PROXIMITY, W3_DRIVE_TIME),
 ) -> list[dict]:
     """Ponderisano rangiranje kandidata - cista funkcija (bez modela i sata),
     da bi je koristili i API (recommend_parks) i evaluacija
     (ml/eval_recommender.py). Svaki kandidat mora imati `availability_score`
-    (0-1) i `distance_to_destination_km`. Vraca kandidate sortirane po skoru,
-    od najboljeg."""
+    (0-1), `distance_to_destination_km` i `eta_minutes`. Vraca kandidate
+    sortirane po skoru, od najboljeg.
+
+    Blizina i vreme voznje su normalizovani na 0-1 u odnosu na najudaljeniji
+    kandidat (isti nacin za obe komponente), pa ponderi uporedjuju iste
+    skale: 1 = najduze hodanje, odnosno najduza voznja medju kandidatima."""
     if not candidates:
         return []
 
     w1, w2, w3 = weights
     max_walk_distance_km = max(c["distance_to_destination_km"] for c in candidates) or 1.0
+    max_drive_minutes = max(c["eta_minutes"] for c in candidates) or 1.0
 
     results = []
     for c in candidates:
         predicted_availability = c["availability_score"]
         closeness = 1 - (c["distance_to_destination_km"] / max_walk_distance_km)
-        traffic = _traffic_density_score(c["distance_to_destination_km"], hour)
+        drive_time = c["eta_minutes"] / max_drive_minutes
 
-        score = w1 * predicted_availability + w2 * closeness - w3 * traffic
+        score = w1 * predicted_availability + w2 * closeness - w3 * drive_time
 
         results.append(
             {
@@ -155,11 +163,11 @@ def score_candidates(
                 "score_components": {
                     "predicted_availability": round(predicted_availability, 4),
                     "closeness": round(closeness, 4),
-                    "traffic": round(traffic, 4),
+                    "drive_time": round(drive_time, 4),
                     "weights": {
                         "w1_predicted_availability": w1,
                         "w2_proximity": w2,
-                        "w3_traffic": w3,
+                        "w3_drive_time": w3,
                     },
                 },
             }

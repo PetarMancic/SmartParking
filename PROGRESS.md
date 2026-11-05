@@ -162,9 +162,11 @@ Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 19,3%,
 4. **Oracle je ponekad malo lošiji od modela.** Formula tretira dostupnost linearno (96% i 100% zauzetosti se jedva razlikuju), iako je pun parking zapravo neuspeh. Ideja za poboljšanje ili diskusiju: nelinearna kazna kad je predviđena zauzetost blizu kapaciteta, uz korišćenje MAE kao nesigurnosti.
 5. **Osetljivost pondera** (`eval_recommender_osetljivost.csv/.png`, w3 = 0, w2 = 1 − w1). Za gradske parkinge, pri w1 ≥ 0,7 rizik pada ispod 1% uz ~730 m hodanja. Kad su u igri i P&R, pri w1 > 0,6 sistem šalje 23–87% vozača na P&R. Trenutni ponderi (0.55/0.3/0.15) su u dobroj tački: 0% punih, ~0,95 km hodanja, ~3% na P&R. Pri planiranju 2 h unapred kriva modela je skoro na krivoj oracle-a, a naivna ostaje na ~2% i pri w1 = 1.
 
+*Napomena (2026-11-05): brojevi u ovom odeljku su sa starim trećim članom (heuristika „saobraćaj”). Od koraka 6a treći član je vreme vožnje do parkinga, a CSV-ovi i grafici u `ml/output/` su ponovo izračunati. Nove brojeve i poređenje vidi u koraku 6a. Glavna razlika: preporuka češće bira P&R (2,8% → 13,4%), ali onaj koji je vozaču usput. Konačni brojevi za rad biće iz koraka 6b (ponderi izabrani na oktobru, rezultati na novembru i decembru).*
+
 **Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i `ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
 
-**Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su 14 parkinga (B&Q Boundary Road se ne preporučuje; do 2026-10-28 bilo ih je 9); ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); w3 (saobraćaj) je heuristika. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
+**Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su 14 parkinga (B&Q Boundary Road se ne preporučuje; do 2026-10-28 bilo ih je 9); ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); ~~w3 (saobraćaj) je heuristika~~ od koraka 6a treći član je vreme vožnje do parkinga, procenjeno po pravoj liniji. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
 
 ### Korak 4 — Poređenje modela (`ml/compare_models.py`) ✅
 
@@ -308,7 +310,40 @@ Greška monotono pada i još ne staje između 6 i 11 meseci, pa bi više podatak
 
 Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća baš na najkraćem horizontu (+76% na 30 min). Jedan model kapacitet od 400 stabala dubine 6 deli na 31 horizont, a 30-min redovi su samo 1/31 treninga. Ablacija pokazuje isti efekat sa druge strane: na dugim horizontima trenutno stanje već smeta. **Moguće poboljšanje (nije urađeno):** hibrid, odnosno specijalizovani modeli za 30 min do 2 h i jedan model za ostale horizonte. Za rad je dovoljno navesti tradeoff i hibrid kao budući rad.
 
-### Korak 6 — Saobraćaj (w3) ⏸ čeka mentora
+### Korak 6 — Vreme vožnje umesto saobraćaja (u toku: 6a ✅, 6b–6d preostaju)
+
+**Odluka mentora (4.11.2026):** saobraćaj ostaje budući rad, a treći član formule postaje vreme vožnje od polaska do parkinga. Argument za rad, rečima mentora: cilj treće komponente nije merenje saobraćaja, već procena troška dolaska do parkinga; vreme vožnje je direktnija mera tog troška i prirodno obuhvata saobraćaj kada takvi podaci postanu dostupni. Evaluacija sa 2000 vožnji je dovoljna; u radu je opisati kao **offline replay eksperiment** koji meri efikasnost algoritma preporuke (da li vozača upućuje na parking sa slobodnim mestima), a ne zadovoljstvo korisnika. Plan: 6a vreme vožnje u formuli, 6b izbor pondera na validacionom periodu, 6c prag punog parkinga (85/90/95%), 6d dokumentacija.
+
+#### 6a — Vreme vožnje kao treći član ✅ (2026-11-05)
+
+`skor = w1·dostupnost + w2·blizina_cilju − w3·vreme_vožnje`, ponderi i dalje 0.55/0.3/0.15 (biraju se u 6b).
+
+- `backend/recommender.py`: heuristika `_traffic_density_score` je obrisana. `vreme_vožnje = eta_minutes / najduža_vožnja_među_kandidatima` (0–1), isto normalizovano kao blizina. Koristi se već postojeća procena dolaska (prava linija, 30 km/h), pa podaci o saobraćaju bi kasnije menjali samo `eta_minutes`. `score_candidates()` više ne prima sat, jer ga je koristila samo heuristika. U odgovoru API-ja `score_components.traffic` je postalo `drive_time`, a `w3_traffic` je postalo `w3_drive_time`.
+- `ml/eval_recommender.py`: kandidati nose `eta_minutes`, a tabele imaju i `voznja_min`.
+- Frontend: u bloku „Zašto?” i u formuli ispod preporuka „Saobraćaj” je postalo „Vreme vožnje”. Provereno u browseru (Bowthorpe → centar, sub 18.11.2017 10:00): „Vreme vožnje − 52% × 0.15”, bez grešaka u konzoli; `tsc` prolazi.
+
+**Rezultati** (isti 2000 vozača, XGBoost, ceo test period; `ml/output/eval_recommender_*.csv`):
+
+| | Staro (heuristika „saobraćaj”) | Novo (vreme vožnje) |
+|---|---|---|
+| Pun pri dolasku, svi parkinzi (polazak odmah / 4 h) | 0,0% / 0,0% | 0,0% / 0,0% |
+| Pun pri dolasku, samo gradski (polazak odmah / 4 h) | 2,6% / 2,9% | **2,2% / 2,4%** |
+| Upućeno na P&R, svi parkinzi | 2,8% | 13,4% |
+| od toga P&R na suprotnoj strani grada | **61%** | **14,5%** |
+| Prosečna vožnja do izabranog P&R | 6,0 km | 3,1 km |
+| Prosečna vožnja do izabranog parkinga | 5,53 km | 5,16 km |
+| Subota 11–16 h: na P&R / od toga suprotna strana | 18% / 58% | 40% / 23% |
+| Subota 11–16 h, samo gradski: pun pri dolasku | 11,9% | 10,4% |
+
+„Suprotna strana grada” znači da je vožnja od polaska do P&R duža od vožnje do samog centra, tj. vozač bi prošao pored centra da bi stigao do P&R (skript za ovo merenje je pomoćni, van repoa; isti vozači, polazak odmah).
+
+**Zaključci:**
+1. **Problem zbog kog je izmena uvedena je rešen.** Ranije je sistem retko slao na P&R, ali kad je slao, 61% puta je to bio P&R na suprotnoj strani grada (prosečno 6 km vožnje). Sada je to 14,5% (3,1 km). Vozač se šalje na P&R koji mu je usput.
+2. **Više upućivanja na P&R (2,8% → 13,4%).** Stara heuristika je u stvari bila dodatna kazna za udaljenost od cilja, pa je odvraćala od svih P&R. Sada se P&R bira kad je usput i kad je centar pun (subota 40%, a radnim danom ujutru ih nema u vrhu). Da li je ovaj udeo „previše”, zavisi od kriterijuma izbora pondera. To je pitanje za 6b, ne za formulu.
+3. **Za gradske parkinge izmena malo pomaže** (2,6% → 2,2%), jer je vožnja do svih parkinga u centru skoro ista. Tu i dalje odlučuju dostupnost i blizina cilju. Hodanje je isto (~0,69 km).
+4. **Ograničenje primera iz dokumenta za mentora.** U primeru Bowthorpe → centar (sub 18.11.2017 10:00) Thickthorn se popeo sa 13. na 7. mesto, ali je Sprowston i dalje ispred njega (2. mesto). Razlog nije vreme vožnje, nego dostupnost: Sprowston je predviđen na 18%, a Thickthorn na 43%. Oba imaju dosta mesta, ali linearna dostupnost tu razliku od 25 p.p. vrednuje više nego 8 minuta kraće vožnje. Rečenica iz dokumenta („prednost bi dobio Thickthorn”) važi samo kad su oba parkinga podjednako slobodna. Pri istoj dostupnosti Thickthorn pobeđuje, ali tesno (razlika u skoru 0,013). Ovo je argument za 6b (koliko težine dati vremenu vožnje), a možda i za nelinearnu dostupnost (vidi korak 3, zaključak 4).
+
+#### Istorija (pre odluke mentora)
 
 Analiza (2026-10-27) je pokazala da heuristika za saobraćaj ne meri saobraćaj. Deo za vršne sate je isti za sve kandidate u istom trenutku, pa ne menja redosled. Deo za udaljenost (`min(0.35, d/10)`) je apsolutna kazna za udaljenost, koja odvraća sistem od P&R parkinga. Izmereno na istih 2000 vozača (XGBoost, polazak odmah):
 
@@ -317,12 +352,13 @@ Analiza (2026-10-27) je pokazala da heuristika za saobraćaj ne meri saobraćaj.
 | sada: 0.55/0.3/0.15 + heuristika | 2,6% | 2,8% | 18% / 11,9% |
 | w3 = 0, ponderi 0.6/0.4 | 4,0% | 4,0% | 19% / 19,4% |
 | w3 = 0, ponderi 0.55/0.3 | 2,3% | 10,8% | 37% / 11,2% |
+| **vreme vožnje, 0.55/0.3/0.15 (uvedeno u 6a)** | 2,2% | 13,4% | 40% / 10,4% |
 
 *Ažurirano 2026-10-28: tabela je izračunata sa 14 kandidata (svi parkinzi sa koordinatama iz NCC feeda, bez B&Q Boundary Road). Sa 9 kandidata je bilo: sada 1,8% / 2,2% / 14% / 7,5%; 0.6/0.4 3,0% / 2,9% / 15% / 11,9%; 0.55/0.3 1,6% / 8,8% / 30% / 6,7%. Sa više parkinga, izbacivanje heuristike više košta (subota, samo gradski: 11,9% → 19,4% uz 0.6/0.4).*
 
-Primećena je još jedna slabost: skor ne kažnjava udaljenost od polaska. Vozaču sa zapada se nude P&R na suprotnim stranama grada (Sprowston, Postwick), umesto Costessey-ja i Thickthorn-a koji su mu na putu. Kandidat za treći član umesto „saobraćaja” je **vreme vožnje do parkinga** (već se računa kao ETA, a sa pravim saobraćajem bi postalo tačnije). Još nije izmereno.
+Primećena je još jedna slabost: skor ne kažnjava udaljenost od polaska. Vozaču sa zapada se nude P&R na suprotnim stranama grada (Sprowston, Postwick), umesto Costessey-ja i Thickthorn-a koji su mu na putu. Kandidat za treći član umesto „saobraćaja” je **vreme vožnje do parkinga** (već se računa kao ETA, a sa pravim saobraćajem bi postalo tačnije). ~~Još nije izmereno.~~ Izmereno i uvedeno u 6a.
 
-Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min) nisu nađeni besplatno. Za ulazne puteve (A47, A11) postoji National Highways WebTRIS. Pitanje i opcije su u `../ZA_MENTORA.md`; kod se ne menja dok mentor ne odgovori.
+Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min) nisu nađeni besplatno. Za ulazne puteve (A47, A11) postoji National Highways WebTRIS. Pitanje i opcije su u `../ZA_MENTORA.md`.
 
 ### Korak 8 — Higijena projekta ✅
 
