@@ -164,7 +164,7 @@ Scenario „samo gradski parkinzi” (bez P&R, realno hodanje): najbliži 19,3%,
 
 *Napomena (2026-11-05): brojevi u ovom odeljku su sa starim trećim članom (heuristika „saobraćaj”). Od koraka 6a treći član je vreme vožnje do parkinga, a CSV-ovi i grafici u `ml/output/` su ponovo izračunati. Nove brojeve i poređenje vidi u koraku 6a. Glavna razlika: preporuka češće bira P&R (2,8% → 13,4%), ali onaj koji je vozaču usput. Konačni brojevi za rad su iz koraka 6b (ponderi izabrani na oktobru, rezultati na novembru i decembru, fiksna normalizacija). Analiza osetljivosti iz zaključka 5 (w1/w2, na test periodu) je uklonjena iz koda i zamenjena izborom pondera u 6b.*
 
-**Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i `ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
+**Grafici za rad:** `ml/output/eval_recommender_po_planiranju.png` (pun parking naspram vremena planiranja) i ~~`ml/output/eval_recommender_osetljivost.png` (kompromis rizik/hodanje)~~ `ml/output/izbor_pondera.png` (kompromis rizik / vreme do cilja za svih 231 kombinacija pondera, korak 6b). Boje su iz validirane palete (dataviz validator: PASS; aqua ima nizak kontrast, pa ima direktne oznake i šuplje markere).
 
 **Ograničenja (za rad):** nedelja je izostavljena (P&R ne rade); kandidati su 14 parkinga (B&Q Boundary Road se ne preporučuje; do 2026-10-28 bilo ih je 9); ETA ide po pravoj liniji pri 30 km/h; „hodanje” do P&R je zapravo vožnja autobusom (zato postoji scenario „samo gradski”); ~~w3 (saobraćaj) je heuristika~~ od koraka 6a treći član je vreme vožnje do parkinga, procenjeno po pravoj liniji. Vožnje sa manje od 2 kandidata su izbačene (n ≈ 1906 po vremenu planiranja, 1720 za 4 h, jer kasni dolasci padaju posle kraja merenja).
 
@@ -310,7 +310,7 @@ Greška monotono pada i još ne staje između 6 i 11 meseci, pa bi više podatak
 
 Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća baš na najkraćem horizontu (+76% na 30 min). Jedan model kapacitet od 400 stabala dubine 6 deli na 31 horizont, a 30-min redovi su samo 1/31 treninga. Ablacija pokazuje isti efekat sa druge strane: na dugim horizontima trenutno stanje već smeta. **Moguće poboljšanje (nije urađeno):** hibrid, odnosno specijalizovani modeli za 30 min do 2 h i jedan model za ostale horizonte. Za rad je dovoljno navesti tradeoff i hibrid kao budući rad.
 
-### Korak 6 — Vreme vožnje umesto saobraćaja (u toku: 6a ✅, 6b ✅, 6c ✅, 6d preostaje)
+### Korak 6 — Vreme vožnje umesto saobraćaja ✅ (6a–6d, 2026-11-05/06)
 
 **Odluka mentora (4.11.2026):** saobraćaj ostaje budući rad, a treći član formule postaje vreme vožnje od polaska do parkinga. Argument za rad, rečima mentora: cilj treće komponente nije merenje saobraćaja, već procena troška dolaska do parkinga; vreme vožnje je direktnija mera tog troška i prirodno obuhvata saobraćaj kada takvi podaci postanu dostupni. Evaluacija sa 2000 vožnji je dovoljna; u radu je opisati kao **offline replay eksperiment** koji meri efikasnost algoritma preporuke (da li vozača upućuje na parking sa slobodnim mestima), a ne zadovoljstvo korisnika. Plan: 6a vreme vožnje u formuli, 6b izbor pondera na validacionom periodu, 6c prag punog parkinga (85/90/95%), 6d dokumentacija.
 
@@ -439,6 +439,22 @@ Samo gradski, XGBoost: 1,1 / 1,5 / 2,1% (odmah), 0,9 / 1,5 / 2,7% (4 h); najbli�
 2. **Stroži prag daje veće brojeve za sve strategije**, ali sistem i dalje vozača skoro uvek šalje na parking sa bar 15% slobodnih mesta (~98% vožnji).
 3. **95% je izabran kao „praktično pun”**: parkinzi u podacima retko dostignu 100%, a na 95% ostaje premalo mesta da bi se lako našlo.
 4. **Ponderi se pomeraju malo** i ostaju u istom ravnom delu iz 6b. Uz stroži prag pravilo daje nešto više težine dostupnosti i blizini, a manje vremenu vožnje, i tada P&R praktično nestaje (uz manji w3 P&R gubi prednost kraće vožnje). Vreme do cilja raste za najviše 0,35 min. Izbor praga nije presudan za sistem.
+
+#### 6d — Dokumentacija ✅ (2026-11-06)
+
+`README.md`, `CLAUDE.md` i ovaj fajl su usklađeni sa formulom (vreme vožnje, fiksne skale), izabranim ponderima i podelom oktobar / novembar–decembar. Stari opisi „saobraćaja” su ispravljeni tamo gde opisuju trenutni sistem, a ostavljeni u unosima istorije. Ugovor API-ja u `frontend/UI_REDESIGN_PLAN.md` ima nova imena polja (`drive_time`, `w3_drive_time`).
+
+**Pitanja komisije koja je mentor naveo i gde su odgovori:**
+
+| Pitanje | Odgovor |
+|---|---|
+| Kako su određeni ponderi? | 6b: pravilom zapisanim unapred, na oktobru, mereni na novembru i decembru |
+| Da li bi druga kombinacija bila bolja? | 6b: Pareto kriva i ravan deo (najbolje tri se razlikuju za < 0,1 p.p. i ~8 s) |
+| Zašto prag 95%? | 6c: parkinzi retko dostignu 100%; zaključci isti na 85 / 90 / 95% |
+| Koliko rezultati zavise od Norwicha? | korak 7 (još nije urađen) |
+| Da li bi model radio u drugom gradu? | korak 7 (još nije urađen) |
+
+**Šta u radu navesti kao ograničenja preporuke:** pretpostavke o hodanju i P&R autobusu (izbor pondera od njih zavisi); vreme vožnje po pravoj liniji pri 30 km/h; novembar i decembar su pogledani dva puta (6b, ispravka normalizacije); nedelja izostavljena; evaluacija meri efikasnost algoritma, ne zadovoljstvo korisnika.
 
 #### Istorija (pre odluke mentora)
 

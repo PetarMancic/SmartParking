@@ -32,7 +32,7 @@ backend/datasource.py (ReplaySource)  →  backend/simulator.py (SimulationClock
 backend/predictor.py (predikcija za bilo koje vreme na 30-min mreži)
         │
         ▼
-backend/recommender.py (ponderisano rangiranje: dostupnost + blizina − saobraćaj)
+backend/recommender.py (ponderisano rangiranje: dostupnost + blizina − vreme vožnje)
         │
         ▼
 FastAPI (backend/main.py)  →  frontend (Next.js + Leaflet, polling na 3s)

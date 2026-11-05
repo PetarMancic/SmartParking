@@ -15,7 +15,7 @@ preporuka → mapa**. Sistem radi tri stvari:
 2. **Predviđanje dostupnosti.** Jedan XGBoost model predviđa zauzetost za bilo koji
    horizont od 30 min do 15,5 h (horizont je ulazna promenljiva).
 3. **Preporuka lokacije.** Parkinzi se rangiraju po ponderisanom skoru (predviđena
-   dostupnost pri dolasku, blizina destinaciji, saobraćaj).
+   dostupnost pri dolasku, blizina destinaciji, vreme vožnje do parkinga).
 
 **Ključni princip: predikcija i preporuka su ODVOJENI moduli.** Predikcija je ML
 zadatak. Preporuka je rangiranje po ponderisanom skoru i NE koristi neuronsku mrežu.
@@ -26,7 +26,7 @@ zadatak. Preporuka je rangiranje po ponderisanom skoru i NE koristi neuronsku mr
 |---|---|
 | `../MASTER_PLAN.md` | zahtevi profesora, podaci, model, koordinate, mapa (van repoa) |
 | `../PLAN_ZAVRSETKA.md` | preostali koraci do kraja rada, sa štikliranjem (van repoa) |
-| `../ZA_MENTORA.md` | otvorena pitanja za mentora (npr. saobraćaj) (van repoa) |
+| `../ZA_MENTORA.md` | poruke i pitanja za mentora; saobraćaj je odlučen 4.11.2026 (van repoa) |
 | `PROGRESS.md` | log urađenog po fazama i koracima, svi rezultati eksperimenata |
 | `README.md` | arhitektura, instalacija, pokretanje, API, ograničenja |
 | `frontend/AGENTS.md` | Next.js u ovom projektu ima breaking changes; pročitati pre izmena frontenda |
