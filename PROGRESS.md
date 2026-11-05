@@ -310,7 +310,7 @@ Greška monotono pada i još ne staje između 6 i 11 meseci, pa bi više podatak
 
 Brojevi iz redizajna (2026-10-17) su potvrđeni. Cena fleksibilnosti je najveća baš na najkraćem horizontu (+76% na 30 min). Jedan model kapacitet od 400 stabala dubine 6 deli na 31 horizont, a 30-min redovi su samo 1/31 treninga. Ablacija pokazuje isti efekat sa druge strane: na dugim horizontima trenutno stanje već smeta. **Moguće poboljšanje (nije urađeno):** hibrid, odnosno specijalizovani modeli za 30 min do 2 h i jedan model za ostale horizonte. Za rad je dovoljno navesti tradeoff i hibrid kao budući rad.
 
-### Korak 6 — Vreme vožnje umesto saobraćaja (u toku: 6a ✅, 6b ✅, 6c–6d preostaju)
+### Korak 6 — Vreme vožnje umesto saobraćaja (u toku: 6a ✅, 6b ✅, 6c ✅, 6d preostaje)
 
 **Odluka mentora (4.11.2026):** saobraćaj ostaje budući rad, a treći član formule postaje vreme vožnje od polaska do parkinga. Argument za rad, rečima mentora: cilj treće komponente nije merenje saobraćaja, već procena troška dolaska do parkinga; vreme vožnje je direktnija mera tog troška i prirodno obuhvata saobraćaj kada takvi podaci postanu dostupni. Evaluacija sa 2000 vožnji je dovoljna; u radu je opisati kao **offline replay eksperiment** koji meri efikasnost algoritma preporuke (da li vozača upućuje na parking sa slobodnim mestima), a ne zadovoljstvo korisnika. Plan: 6a vreme vožnje u formuli, 6b izbor pondera na validacionom periodu, 6c prag punog parkinga (85/90/95%), 6d dokumentacija.
 
@@ -401,6 +401,44 @@ Subota 11–16 h (138 vožnji): najbliži 68% punih. XGBoost 5,1% (polazak odmah
 5. **Vrednost ML prognoze i dalje raste sa vremenom planiranja:** za polazak odmah naivna prognoza je jednako dobra (0,7% naspram 0,8%), ali za 2–4 h unapred naivna dovodi na pun parking u 6–9% slučajeva, a XGBoost u 0,6–0,7%. XGBoost je na nivou savršene prognoze.
 6. **Poređenje sa najbližim parkingom po vremenu nije fer,** jer vreme ne uključuje traženje novog mesta kad je parking pun. Najbliži je pun u 21,5% slučajeva; uz pretpostavljenih 15 min za traženje, njegovo očekivano vreme bi bilo ~20 min, isto kao uz preporuku.
 7. **Ograničenje:** izbor zavisi od pretpostavki o P&R autobusu. Uz sporiji autobus P&R se praktično ne preporučuje, a uz vrlo brz šalje se 43% vozača. Pravi red vožnje P&R autobusa u Norwichu bi ovo preciziralo (budući rad).
+
+#### 6c — Prag „punog” parkinga (85 / 90 / 95%) ✅ (2026-11-06)
+
+Pitanje komisije koje mentor očekuje: zašto je „pun” definisan kao ≥ 95%. Provereno je na tri načina. Evaluacija sada meri sva tri praga (`FULL_THRESHOLDS` u `ml/eval_recommender.py`, kolone `pun_85_pct`, `pun_90_pct`, `pun_95_pct`), a izbor pondera je ponovljen sa pragom od 90% i 85% u pravilu (`izbor_pondera_provera.csv`). Glavni izbor (prag 95%) ponovljen je i dao je identičan rezultat, pa je skript ponovljiv.
+
+**1. Zašto ne 100%: šta kažu podaci** (sirova očitavanja u test periodu 1.10.–5.12.2017, pomoćni skript van repoa):
+
+| Tip | ≥ 85% | ≥ 90% | ≥ 95% | ≥ 100% |
+|---|---|---|---|---|
+| gradski (28.459 očitavanja) | 23,3% | 19,0% | 14,4% | 3,4% |
+| Park & Ride (15.500) | 0,9% | 0,4% | 0,05% | 0% |
+
+Gradski parking se retko prijavi kao potpuno pun. Mesta se stalno oslobađaju i zauzimaju, a neka ostaju neiskorišćena. Castle Quarter 2 (80 mesta) nikad nije prešao 98,8%, a Rose Lane ni 87,2%. Prag od 100% bi propustio većinu situacija u kojima je parking praktično pun. Na 95% gradskom parkingu ostaje 4–52 slobodnih mesta, zavisno od kapaciteta (80–1047), i njih vozač mora da traži. Prag od 85% je često citirana ciljna zauzetost iz literature o parkiranju (Shoup), kada je mesto još lako naći; to je stroža definicija „punog”.
+
+**2. Konačni rezultati na sva tri praga** (novembar–decembar, svi parkinzi; `eval_recommender_strategije.csv`):
+
+| Strategija | Polazak odmah: 95 / 90 / 85% | Planiranje 4 h: 95 / 90 / 85% |
+|---|---|---|
+| Najbliži destinaciji (bez sistema) | 21,5 / 27,8 / 33,9% | 16,6 / 21,6 / 26,1% |
+| Preporuka, naivna prognoza | 0,7 / 1,4 / 1,9% | 9,2 / 12,0 / 15,3% |
+| **Preporuka, XGBoost** | **0,8 / 1,1 / 1,7%** | **0,6 / 1,2 / 2,3%** |
+| Preporuka, savršena prognoza | 0,8 / 1,1 / 1,7% | 0,8 / 1,2 / 2,1% |
+
+Samo gradski, XGBoost: 1,1 / 1,5 / 2,1% (odmah), 0,9 / 1,5 / 2,7% (4 h); najbliži isto kao gore. Subota 11–16 h, XGBoost: 5,1% na sva tri praga (odmah), a najbliži 68 / 73 / 75%.
+
+**3. Da li bi se ponderi promenili** (pravilo na oktobru, isti postupak, samo drugi prag u prvom koraku):
+
+| Prag u pravilu | Izabrani ponderi | Pun (95%) | Vreme do cilja | Na P&R |
+|---|---|---|---|---|
+| **95% (glavni)** | **0,15 / 0,40 / 0,45** | 0,40% | 19,83 min | 9,1% |
+| 90% | 0,20 / 0,55 / 0,25 | 0,34% | 20,02 min | 0,1% |
+| 85% | 0,25 / 0,65 / 0,10 | 0,24% | 20,18 min | 0,0% |
+
+**Zaključci za rad („zašto 95%?”):**
+1. **Zaključci ne zavise od praga.** Na svakom pragu redosled strategija je isti: bez sistema 17–34% punih, uz preporuku sa XGBoost-om 0,6–2,3%, odnosno 12–26 puta manje (zavisno od praga i vremena planiranja). XGBoost je na nivou savršene prognoze, a prednost nad naivnom prognozom raste sa vremenom planiranja (4 h: 2,3% naspram 15,3% na pragu od 85%).
+2. **Stroži prag daje veće brojeve za sve strategije**, ali sistem i dalje vozača skoro uvek šalje na parking sa bar 15% slobodnih mesta (~98% vožnji).
+3. **95% je izabran kao „praktično pun”**: parkinzi u podacima retko dostignu 100%, a na 95% ostaje premalo mesta da bi se lako našlo.
+4. **Ponderi se pomeraju malo** i ostaju u istom ravnom delu iz 6b. Uz stroži prag pravilo daje nešto više težine dostupnosti i blizini, a manje vremenu vožnje, i tada P&R praktično nestaje (uz manji w3 P&R gubi prednost kraće vožnje). Vreme do cilja raste za najviše 0,35 min. Izbor praga nije presudan za sistem.
 
 #### Istorija (pre odluke mentora)
 

@@ -178,6 +178,8 @@ Ukratko:
   preporuku je 14 (8 gradskih i 6 Park & Ride), a B&Q Boundary Road je samo na mapi.
 - Ponderi su izabrani na oktobru, a mereni na novembru i decembru. Oko izabranih
   pondera rezultati su skoro isti za širok raspon kombinacija.
+- „Pun” znači zauzet ≥ 95%. Zaključci važe i za prag od 90% i 85% (bez sistema
+  17–34% punih, uz preporuku 0,6–2,3%).
 - XGBoost ima najmanju grešku: MAE 4,83 p.p. ukupno, 2,87 na 30 min.
 - Za kratke prognoze presudna je trenutna zauzetost, a za duge stanje u isto vreme
   juče i pre nedelju dana.

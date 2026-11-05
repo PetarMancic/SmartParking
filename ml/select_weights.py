@@ -62,15 +62,22 @@ RISK_TOLERANCE_PP = 0.5
 FULL_THRESHOLD = ev.FULL_THRESHOLDS[0]
 
 # Varijante pretpostavki za proveru izbora: (naziv, cekanje autobusa u min,
-# brzina autobusa u km/h, tolerancija u p.p.). Prva je osnovna.
+# brzina autobusa u km/h, tolerancija u p.p., prag punog parkinga u pravilu).
+# Prva je osnovna. Varijante sa pragom 90% i 85% su korak 6c.
 ASSUMPTION_VARIANTS = [
-    ("osnovno", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, RISK_TOLERANCE_PP),
-    ("sporiji autobus (10 min cekanja)", 10.0, ev.BUS_SPEED_KMH, RISK_TOLERANCE_PP),
-    ("jos sporiji autobus (10 min, 15 km/h)", 10.0, 15.0, RISK_TOLERANCE_PP),
-    ("brzi autobus (3 min, 25 km/h)", 3.0, 25.0, RISK_TOLERANCE_PP),
-    ("stroza tolerancija (0,25 p.p.)", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, 0.25),
-    ("blaza tolerancija (1 p.p.)", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, 1.0),
+    ("osnovno", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, RISK_TOLERANCE_PP, 0.95),
+    ("sporiji autobus (10 min cekanja)", 10.0, ev.BUS_SPEED_KMH, RISK_TOLERANCE_PP, 0.95),
+    ("jos sporiji autobus (10 min, 15 km/h)", 10.0, 15.0, RISK_TOLERANCE_PP, 0.95),
+    ("brzi autobus (3 min, 25 km/h)", 3.0, 25.0, RISK_TOLERANCE_PP, 0.95),
+    ("stroza tolerancija (0,25 p.p.)", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, 0.25, 0.95),
+    ("blaza tolerancija (1 p.p.)", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, 1.0, 0.95),
+    ("prag punog 90%", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, RISK_TOLERANCE_PP, 0.90),
+    ("prag punog 85%", ev.BUS_WAIT_MIN, ev.BUS_SPEED_KMH, RISK_TOLERANCE_PP, 0.85),
 ]
+
+
+def risk_column(threshold: float) -> str:
+    return f"pun_{round(threshold * 100)}_pct"
 
 
 def weight_grid(step: float = WEIGHT_STEP) -> np.ndarray:
@@ -125,8 +132,7 @@ def summarize_weights(chosen: dict[str, np.ndarray], weights: np.ndarray, bus_wa
             "w1": weights[:, 0],
             "w2": weights[:, 1],
             "w3": weights[:, 2],
-            "pun_95_pct": 100 * (chosen["rate_actual"] >= FULL_THRESHOLD).mean(axis=0),
-            "pun_90_pct": 100 * (chosen["rate_actual"] >= ev.FULL_THRESHOLDS[1]).mean(axis=0),
+            **{risk_column(t): 100 * (chosen["rate_actual"] >= t).mean(axis=0) for t in ev.FULL_THRESHOLDS},
             "vreme_do_cilja_min": door_to_door(chosen, bus_wait_min, bus_speed_kmh).mean(axis=0),
             "voznja_min": chosen["eta_minutes"].mean(axis=0),
             "do_cilja_km": chosen["distance_to_destination_km"].mean(axis=0),
@@ -135,11 +141,13 @@ def summarize_weights(chosen: dict[str, np.ndarray], weights: np.ndarray, bus_wa
     )
 
 
-def apply_rule(table: pd.DataFrame, tolerance_pp: float) -> pd.Series:
-    """Pravilo izbora iz docstringa."""
-    best_risk = table["pun_95_pct"].min()
-    eligible = table[table["pun_95_pct"] <= best_risk + tolerance_pp]
-    return eligible.sort_values(["vreme_do_cilja_min", "pun_95_pct"]).iloc[0]
+def apply_rule(table: pd.DataFrame, tolerance_pp: float, threshold: float = FULL_THRESHOLD) -> pd.Series:
+    """Pravilo izbora iz docstringa (prag punog parkinga je parametar samo
+    radi provere osetljivosti; glavni izbor koristi 95%)."""
+    risk = risk_column(threshold)
+    best_risk = table[risk].min()
+    eligible = table[table[risk] <= best_risk + tolerance_pp]
+    return eligible.sort_values(["vreme_do_cilja_min", risk]).iloc[0]
 
 
 def pareto_front(table: pd.DataFrame) -> pd.DataFrame:
@@ -221,7 +229,7 @@ def main() -> None:
     chosen_city = choose_for_all_weights(city_groups, weights)
 
     # Osnovna varijanta: sve kombinacije, Pareto front, izbor po pravilu.
-    _, bus_wait, bus_speed, tolerance = ASSUMPTION_VARIANTS[0]
+    _, bus_wait, bus_speed, tolerance, _ = ASSUMPTION_VARIANTS[0]
     table = summarize_weights(chosen, weights, bus_wait, bus_speed)
     city_table = summarize_weights(chosen_city, weights, bus_wait, bus_speed)
     for col in ["pun_95_pct", "pun_90_pct", "vreme_do_cilja_min", "do_cilja_km"]:
@@ -235,15 +243,18 @@ def main() -> None:
 
     # Provera pretpostavki: da li se izbor menja?
     variant_rows = []
-    for name, wait, speed, tol in ASSUMPTION_VARIANTS:
+    for name, wait, speed, tol, threshold in ASSUMPTION_VARIANTS:
         variant_table = summarize_weights(chosen, weights, wait, speed)
-        row = apply_rule(variant_table, tol)
-        variant_rows.append({"varijanta": name, "cekanje_min": wait, "autobus_kmh": speed, "tolerancija_pp": tol, **row.to_dict()})
+        row = apply_rule(variant_table, tol, threshold)
+        variant_rows.append({
+            "varijanta": name, "cekanje_min": wait, "autobus_kmh": speed, "tolerancija_pp": tol,
+            "prag_pct": round(threshold * 100), **row.to_dict(),
+        })
     variants = pd.DataFrame(variant_rows)
     variants.round(3).to_csv(os.path.join(ev.OUTPUT_DIR, "izbor_pondera_provera.csv"), index=False)
 
     pd.set_option("display.width", 200)
-    cols = ["w1", "w2", "w3", "pun_95_pct", "pun_90_pct", "vreme_do_cilja_min", "voznja_min", "do_cilja_km", "p_and_r_pct"]
+    cols = ["w1", "w2", "w3", "pun_95_pct", "pun_90_pct", "pun_85_pct", "vreme_do_cilja_min", "voznja_min", "do_cilja_km", "p_and_r_pct"]
     print(f"\nNajbolji rizik: {table['pun_95_pct'].min():.2f}%  ->  dozvoljeno do {table['pun_95_pct'].min() + tolerance:.2f}%")
     city_cols = ["gradski_pun_95_pct", "gradski_vreme_do_cilja_min", "gradski_do_cilja_km"]
     print("\n=== Izabrano pravilom ===")

@@ -83,7 +83,10 @@ ORIGIN_DISTANCE_KM = (3.0, 8.0)
 DESTINATION_RADIUS_KM = 1.2
 FIRST_SLOT, LAST_SLOT = "08:00", "19:30"
 LEAD_TIMES_MIN = [0, 60, 120, 240]
-FULL_THRESHOLDS = (0.95, 0.90)
+# Prag "punog" parkinga. Glavni je 95%; 90% i 85% su provera osetljivosti
+# (korak 6c) - 85% je cesto citirana ciljna zauzetost iz literature o
+# parkiranju (Shoup), kada jos uvek postoji nekoliko slobodnih mesta.
+FULL_THRESHOLDS = (0.95, 0.90, 0.85)
 
 # Podela test perioda modela (vidi docstring). Kraj je iskljucen.
 VALIDATION_PERIOD = (pd.Timestamp("2017-10-01"), pd.Timestamp("2017-11-01"))
@@ -271,8 +274,7 @@ def summarize(outcomes: pd.DataFrame, by: list[str]) -> pd.DataFrame:
         return pd.Series(
             {
                 "n": len(g),
-                "pun_95_pct": 100 * (g["actual_rate"] >= FULL_THRESHOLDS[0]).mean(),
-                "pun_90_pct": 100 * (g["actual_rate"] >= FULL_THRESHOLDS[1]).mean(),
+                **{f"pun_{round(t * 100)}_pct": 100 * (g["actual_rate"] >= t).mean() for t in FULL_THRESHOLDS},
                 "hodanje_km": g["walk_km"].mean(),
                 "voznja_km": g["drive_km"].mean(),
                 "voznja_min": g["drive_min"].mean(),
@@ -427,7 +429,7 @@ def main() -> None:
 
     pd.set_option("display.width", 200)
     cols = [
-        "scenario", "lead_min", "strategy", "n", "pun_95_pct", "pun_90_pct",
+        "scenario", "lead_min", "strategy", "n", "pun_95_pct", "pun_90_pct", "pun_85_pct",
         "hodanje_km", "voznja_min", "vreme_do_cilja_min", "p_and_r_pct",
     ]
     print("\n=== Strategije (ponderi", DEFAULT_WEIGHTS, ") ===")
