@@ -3,8 +3,11 @@ Priprema podataka za trening modela zauzetosti (poglavlje 3, MASTER_PLAN.md).
 
 Logika feature-a je ista kao u reference/norfolk_xgb_eksperiment.py, ovde
 uopstena po gradu (CITY_CONFIGS) tako da je izbor skupa podataka konfigurabilan.
-Norfolk je trenutno jedini potpuno podrzan grad - ostali gradovi (Birmingham,
-Glasgow, Nottingham) se dodaju u opcionoj fazi skalabilnosti.
+Aplikacija koristi Norfolk. Birmingham, Glasgow i Nottingham sluze samo za
+proveru modela u drugim gradovima (korak 7, ml/other_cities.py); za njih nema
+koordinata, pa ni preporuke. Upotrebljivi parkinzi i periodi su iz
+MASTER_PLAN.md (poglavlje 3, "Ostali gradovi"), a test je poslednja ~2 meseca
+upotrebljivog perioda, kao kod Norfolka.
 
 CSV fajlovi su van ovog repoa, u data/raw/ na nivou celog master projekta
 (C:\\FAX\\MASTER\\SIR1\\data\\raw), zajednicki za sve faze skalabilnosti.
@@ -26,6 +29,32 @@ CITY_CONFIGS = {
         "excluded_parks": {"CPN0001", "CPN0002", "CPN0010"},
         "test_start": pd.Timestamp("2017-10-01"),
         "test_end": pd.Timestamp("2017-12-06"),
+    },
+    # Merenja ~08:00-16:30 na 30 min; rupa 12.-19.2.2017.
+    "birmingham": {
+        "csv_path": os.path.join(_DATA_RAW_DIR, "Birmingham.csv"),
+        "excluded_parks": {"BHMAPCARC01", "NIA North", "NIA West"},
+        "test_start": pd.Timestamp("2017-03-01"),
+        "test_end": pd.Timestamp("2017-04-29"),
+    },
+    # Merenja 0-24 h. Posle 7.8.2017 rupa do 29.11. - kasniji podaci se ne koriste.
+    "glasgow": {
+        "csv_path": os.path.join(_DATA_RAW_DIR, "Glasgow.csv"),
+        "excluded_parks": {"CPG04C", "CPG05C", "CPG11C"},
+        "period_end": pd.Timestamp("2017-08-08"),
+        "test_start": pd.Timestamp("2017-06-01"),
+        "test_end": pd.Timestamp("2017-08-08"),
+    },
+    # Merenja 0-24 h; rupa 16.5.-3.7.2017. Mnogo zaglavljenih senzora, pa se
+    # zadrzava samo 11 upotrebljivih parkinga (included_parks).
+    "nottingham": {
+        "csv_path": os.path.join(_DATA_RAW_DIR, "Nottingham.csv"),
+        "included_parks": {
+            "211", "212", "C11001", "C11004", "C11005", "C11006",
+            "FRSTPR", "PHNXPR", "PRLMNT", "RYLCT", "SB1-1",
+        },
+        "test_start": pd.Timestamp("2017-10-01"),
+        "test_end": pd.Timestamp("2017-11-29"),
     },
 }
 
@@ -62,8 +91,12 @@ def load_raw(city: str = DEFAULT_CITY) -> pd.DataFrame:
     """Ucitava sirovi CSV, izbacuje neupotrebljive parkinge, racuna stopu zauzetosti."""
     config = CITY_CONFIGS[city]
     df = pd.read_csv(config["csv_path"], dtype={"SystemCodeNumber": str})
-    df = df[~df["SystemCodeNumber"].isin(config["excluded_parks"])]
+    df = df[~df["SystemCodeNumber"].isin(config.get("excluded_parks", set()))]
+    if "included_parks" in config:
+        df = df[df["SystemCodeNumber"].isin(config["included_parks"])]
     df["LastUpdated"] = pd.to_datetime(df["LastUpdated"])
+    if "period_end" in config:
+        df = df[df["LastUpdated"] < config["period_end"]]
     df["rate"] = (df["Occupancy"] / df["Capacity"]).clip(0, 1)
     return df
 

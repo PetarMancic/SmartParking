@@ -70,6 +70,7 @@ smart-parking/
 │   ├── train_norfolk.py               # trening jednog modela → model_norfolk.joblib
 │   ├── eval_recommender.py            # korak 3: evaluacija preporuke (simulirani vozači, nov.–dec.)
 │   ├── select_weights.py              # korak 6b: izbor pondera na validacionom periodu (okt.)
+│   ├── other_cities.py                # korak 7: model u drugim gradovima i prenos Norfolk modela
 │   ├── compare_models.py              # korak 4: poređenje modela i baseline-ova
 │   ├── analyze_model.py               # korak 5: SHAP, ablacija, greške, nedostajući podaci
 │   ├── output/                        # CSV i PNG rezultati (idu u rad)
@@ -96,6 +97,10 @@ smart-parking/
 - Priprema: `rate = clip(Occupancy/Capacity, 0, 1)`, resample na pravilnu mrežu od
   30 min. Rupe se ne popunjavaju.
 - Trening je pre 1.10.2017, a test 1.10.–5.12.2017 (`CITY_CONFIGS` u `ml/data_prep.py`).
+- Podaci B&Q Boundary Road (`C06391`) su u ~210 dana kopija prethodne nedelje, a ne
+  merenje; isto važi za 7 od 11 parkinga u Nottinghamu (korak 7, `PROGRESS.md`).
+- Birmingham, Glasgow i Nottingham (`../data/raw/`) služe samo za proveru modela u
+  drugim gradovima (`ml/other_cities.py`); nemaju koordinate, pa ne idu u aplikaciju.
 - Imena, tipovi (grad / Park & Ride / ostalo) i koordinate svih 15 parkinga su u
   `data/carparks_norfolk.json`, iz zvaničnog Norfolk County Council feeda (arhiviran na
   Wayback Machine-u; obrazloženje u `README.md`). **Ne izmišljati koordinate:** parking
@@ -104,9 +109,10 @@ smart-parking/
 ## Model, preporuka, evaluacija (sažetak; brojevi u `PROGRESS.md`)
 
 - **Model:** `y_t, y_t1, y_t2, delta, y_yesterday, y_lastweek, hour, dow, weekend,
-  holiday, carpark, capacity, horizon_minutes`. Greška je MAE 4,83 p.p. ukupno, a
-  2,87 na 30 min. Kad `y_lastweek` fali, `backend/predictor.py` uzima isti termin
-  14 dana ranije.
+  holiday, carpark, capacity, horizon_minutes`. Greška je MAE 4,83 p.p. ukupno
+  (5,11 bez kopiranih B&Q dana), a 2,87 na 30 min. Kad `y_lastweek` fali,
+  `backend/predictor.py` uzima isti termin 14 dana ranije. Isti postupak u 3 druga
+  grada daje 3,8–6,4 p.p. (korak 7).
 - **Preporuka:** `skor = w1·dostupnost + w2·blizina_destinaciji − w3·vreme_vožnje`
   (`backend/recommender.py`). Ponderi su konstante na vrhu fajla (0.15/0.4/0.45,
   izabrani na oktobru 2017 u koraku 6b). Blizina i vreme vožnje se normalizuju
@@ -117,7 +123,8 @@ smart-parking/
   član skora je vreme vožnje od polaska do parkinga (trošak dolaska do parkinga), a
   ne saobraćaj.
 - **Evaluacija:** `ml/select_weights.py` (~7 min), `ml/eval_recommender.py` (~7 min),
-  `ml/compare_models.py` (~3 min), `ml/analyze_model.py` (~10 min). Izlazi su u
+  `ml/compare_models.py` (~3 min), `ml/analyze_model.py` (~10 min),
+  `ml/other_cities.py` (~20 min). Izlazi su u
   `ml/output/`. Posle izmene prediktora ili preporuke ponovo pokrenuti evaluaciju i
   ažurirati brojeve u `PROGRESS.md`.
 - **Pošteno merenje preporuke:** ponderi se biraju samo na oktobru 2017

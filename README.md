@@ -62,6 +62,7 @@ smart-parking/
 │   ├── model_norfolk.joblib           # sačuvan model (generiše train_norfolk.py)
 │   ├── eval_recommender.py            # evaluacija preporuke simulacijom vozača (nov.–dec. 2017)
 │   ├── select_weights.py              # izbor pondera preporuke na validacionom periodu (okt. 2017)
+│   ├── other_cities.py                # model u Birminghamu, Glasgowu i Nottinghamu + prenos Norfolk modela
 │   ├── compare_models.py              # poređenje modela i baseline-ova
 │   ├── analyze_model.py               # analiza modela (SHAP, ablacija, greške, rupe)
 │   ├── output/                        # metrike, tabele i grafici (CSV/PNG) za rad
@@ -169,6 +170,7 @@ python ml/select_weights.py     # ~7 min: izbor pondera w1/w2/w3 na oktobru (231
 python ml/eval_recommender.py   # ~7 min: preporuka na 2000 simuliranih vozača, nov.–dec. (najbliži / naivna / XGBoost / savršena prognoza)
 python ml/compare_models.py     # ~3 min: XGBoost naspram Random Forest, HistGradientBoosting, Ridge i baseline-ova
 python ml/analyze_model.py      # ~10 min: SHAP, ablacija, greška po parkingu/dobu dana, nedostajući podaci, dužina treninga
+python ml/other_cities.py       # ~20 min: isti model u 3 druga grada, prenos Norfolk modela bez ponovnog treninga, brzina
 ```
 
 Ukratko:
@@ -180,6 +182,10 @@ Ukratko:
   pondera rezultati su skoro isti za širok raspon kombinacija.
 - „Pun” znači zauzet ≥ 95%. Zaključci važe i za prag od 90% i 85% (bez sistema
   17–34% punih, uz preporuku 0,6–2,3%).
+- Isti postupak u Birminghamu, Glasgowu i Nottinghamu daje MAE 3,8–6,4 p.p. i 28–55%
+  je bolji od jednostavnih pravila. Norfolk model bez ponovnog treninga je u drugim
+  gradovima 1,2–2,8 p.p. lošiji od lokalnog, ali i dalje bolji od pravila „pre nedelju
+  dana”.
 - XGBoost ima najmanju grešku: MAE 4,83 p.p. ukupno, 2,87 na 30 min.
 - Za kratke prognoze presudna je trenutna zauzetost, a za duge stanje u isto vreme
   juče i pre nedelju dana.
@@ -267,6 +273,10 @@ zapravo nije merila saobraćaj; zamenjena je po odluci mentora (vidi „Ogranič
   čekanja, 20 km/h), jer pravi red vožnje nije korišćen. Uz vrlo brz autobus izbor bi
   slao mnogo više vozača na P&R (`ml/output/izbor_pondera_provera.csv`).
 - **Test period nema nijedan praznik**, pa uticaj `holiday` ulaza nije mogao da se izmeri.
+- **Deo podataka je kopija prethodne nedelje**, a ne stvarno merenje: B&Q Boundary Road
+  u Norfolku (210 dana) i 7 od 11 parkinga u Nottinghamu. Aplikacija ih koristi kakvi
+  jesu (B&Q se ne preporučuje, a ukupni MAE 4,83 bez tih dana bio bi 5,11); provera u
+  drugim gradovima (`ml/other_cities.py`) ih uklanja. Vidi `PROGRESS.md`, korak 7.
 - **OSRM (javni demo ruting server)** ume da napravi netačnu ili zaobilaznu rutu u
   centru grada, jer ne zna sve zabrane skretanja. To je uočeno i potvrđeno poređenjem
   sa Google Maps za isti par tačaka. Utiče samo na prikaz rute i „Vožnja” (km/min) u

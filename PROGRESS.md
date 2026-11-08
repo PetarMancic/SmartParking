@@ -247,7 +247,9 @@ Ista podela kao u koraku 4 (trening pre 1.10.2017, test 1.10.–5.12.2017, svih 
 
 **3. Greška po parkingu, tipu, dobu dana i popunjenosti, `analiza_greske.png`.**
 - Po tipu: Park & Ride 2,36 p.p. (prosečno 28% pun, 6 parkinga), grad 6,35 (52%, 8 parkinga), ostalo (B&Q Boundary Road) 0,97 (20%). Gradski parkinzi su teži jer su puniji i promenljiviji. *Ažurirano 2026-10-28, kad su svi parkinzi dobili tip iz NCC feeda. Ranije je 6 parkinga bilo „nepoznat tip” (4,16), a sada su raspoređeni po tipovima. Novi gradski (John Lewis, St Giles, St Andrew's) i novi P&R (Airport, Postwick) imaju greške tipične za svoj tip, što potvrđuje uparivanje.*
-- Najteži parking je **CPN0009 The Forum** (10,83; na 30 min 6,20), zatim CPN0006 St Giles (8,05) i CPN0005 Castle Quarter 2 (7,78). Najlakši je C06391 B&Q Boundary Road (0,97; skoro uvek prazan).
+- Najteži parking je **CPN0009 The Forum** (10,83; na 30 min 6,20), zatim CPN0006 St Giles (8,05) i CPN0005 Castle Quarter 2 (7,78). Najlakši je C06391 B&Q Boundary Road (0,97; ~~skoro uvek prazan~~).
+
+  **ISPRAVLJENO u koraku 7 (2026-11-06):** B&Q nije „skoro uvek prazan” (prosečno ~130 vozila od 585 mesta). Njegovi podaci su velikim delom **kopija prethodne nedelje**: u 210 od ~400 dana bar 90% termina ima tačno isti broj vozila kao pre 7 dana (npr. tri utorka zaredom 70, 117, 147, 158, 160, 163, 161…). Greška od 0,97 zato nije prava mera tačnosti modela. Ukupni MAE aplikacije (4,83) uključuje te lake redove. Bez kopiranih B&Q dana isti postupak daje **5,11** (korak 7), a bez B&Q uopšte 5,20. Preporuka (koraci 3 i 6) nije pogođena, jer se B&Q ne preporučuje.
 - Po dobu dana gradski parkinzi su najteži **uveče (18–21 h, do 9,2 p.p.)** i u **jutarnjem punjenju (9–10 h)**. Ovo važi i na fiksnom horizontu od 1 h (19 h: 6,4 p.p., 9 h: 5,0, naspram 12 h: 3,1), pa nije posledica mešanja horizonata. Prelazi (punjenje i pražnjenje) su teški, a stabilni periodi laki. Verovatan uzrok, nepotvrđen, su večernji događaji i izlasci u centru, kojih nema u podacima. Po danu je najteža nedelja (6,15), a ostali dani su 4,2–5,0.
 - Po stvarnoj popunjenosti: ispod 50% greška je 3,80, za 50–80% je 6,05, za **80–95% je 7,69** (najveća), a za ≥ 95% je 6,09. Kada je parking stvarno ≥ 95% pun, model predviđa ≥ 90% u **76%** slučajeva. Za preporuku je opseg 80–95% najrizičniji, što je argument za nelinearnu dostupnost (opciona stavka iz koraka 3).
 
@@ -472,6 +474,55 @@ Analiza (2026-10-27) je pokazala da heuristika za saobraćaj ne meri saobraćaj.
 Primećena je još jedna slabost: skor ne kažnjava udaljenost od polaska. Vozaču sa zapada se nude P&R na suprotnim stranama grada (Sprowston, Postwick), umesto Costessey-ja i Thickthorn-a koji su mu na putu. Kandidat za treći član umesto „saobraćaja” je **vreme vožnje do parkinga** (već se računa kao ETA, a sa pravim saobraćajem bi postalo tačnije). ~~Još nije izmereno.~~ Izmereno i uvedeno u 6a.
 
 Istorijski podaci o saobraćaju za ulice u centru Norwicha (2016–2017, 30 min) nisu nađeni besplatno. Za ulazne puteve (A47, A11) postoji National Highways WebTRIS. Pitanje i opcije su u `../ZA_MENTORA.md`.
+
+### Korak 7 — Model predikcije u drugim gradovima ✅ (2026-11-06)
+
+Odgovor na dva pitanja komisije koja mentor očekuje: *koliko rezultati zavise od Norwicha* i *da li bi model radio u drugom gradu*. Proverava se samo **model predikcije**; za parkinge u drugim gradovima nema koordinata, pa nema ni preporuke. Skript `ml/other_cities.py` (~20 min), izlazi `ml/output/gradovi_tacnost.csv`, `gradovi_po_horizontu.csv/.png`, `gradovi_prenos.png`, `gradovi_performanse.csv`.
+
+**Postavka.**
+- Isti postupak u svakom gradu: isti ulazi, isti hiperparametri (iz Norfolk modela, bez podešavanja po gradu), hronološka podela (test = poslednja ~2 meseca upotrebljivog perioda, `CITY_CONFIGS` u `ml/data_prep.py`). Upotrebljivi parkinzi i periodi su iz `MASTER_PLAN.md`, poglavlje 3.
+- Isti zadatak svuda: prognoza za ciljno vreme **08–23 h** (dnevni opseg merenja u Norfolku). Noćna merenja (Glasgow, Nottingham) mogu biti ulaz, ali se ne predviđaju.
+- **Prenos:** model treniran samo na Norfolku, bez identiteta parkinga (`carpark`, `capacity`, jer su šifre u drugom gradu nepoznate), primenjen na drugi grad bez ponovnog treninga. Upoređuje se sa modelom tog grada sa istim ulazima. Norfolk model za grad X treniran je samo na podacima pre test perioda grada X (Birmingham: pre 1.3.2017, Glasgow: pre 1.6.2017, Nottingham: pre 1.10.2017), da ni preko drugog grada ne vidi isti kalendarski period.
+
+| Grad | Parkinga | Trening | Test | Test redova |
+|---|---|---|---|---|
+| Norfolk (Norwich) | 15 | 26.10.2016–30.9.2017 | 1.10.–5.12.2017 | 352.905 |
+| Birmingham | 29 | 4.10.2016–28.2.2017 | 1.3.–28.4.2017 | 141.346 |
+| Glasgow | 8 | 26.10.2016–31.5.2017 | 1.6.–7.8.2017 | 347.183 |
+| Nottingham | 11 | 26.10.2016–30.9.2017 (rupa 16.5.–3.7.) | 1.10.–28.11.2017 | 276.984 |
+
+**Nalaz o kvalitetu podataka: kopirane nedelje.** Prvo pokretanje (bez čišćenja) dalo je neobičan rezultat: u Nottinghamu model nije bio bolji od pravila „pre nedelju dana” (4,20 naspram 4,14 p.p.). Hipoteza da su krivi parkinzi kojima se nivo promenio pokazala se **netačnom**: na njima je model bio bolji (7,87 naspram 9,35). Pravilo je pobeđivalo na parkinzima gde mu je greška bila skoro nula (RYLCT 0,00, SB1-1 0,03, PRLMNT 0,10 p.p.). Provera je pokazala da je u Nottinghamovom testu broj zauzetih mesta u 85–100% 30-min termina **tačno isti kao pre 7 dana** (PRLMNT, RYLCT, SB1-1: 99,9%; 211, PHNXPR, 212: 84–87%), dok je u Birminghamu i Glasgowu to 0–8%. To nije stvarno merenje, nego kopija prethodne nedelje (verovatno popunjavanje rupa kod izvora). Isto važi za B&Q Boundary Road u Norfolku (vidi ispravku u koraku 5). Kriterijumi „upotrebljivog parkinga” iz `MASTER_PLAN.md` ovo nisu hvatali.
+
+**Čišćenje** (isto za sva četiri grada, samo u ovom eksperimentu; aplikacija se ne menja): dan parkinga u kom je bar 90% termina 08–23 h tačna kopija istog termina pre 7 dana tretira se kao nedostajući podatak (ne ulazi ni u trening, ni u test, ni kao ulaz). Dani sa promenom manjom od 3 vozila (npr. P&R nedeljom, 0 ceo dan) ne računaju se kao kopija. Uklonjeno: Norfolk 210 od 5774 dana parkinga (3,6%, svi B&Q), Birmingham 0, Glasgow 0, Nottingham 995 od 3718 (26,8%, 7 od 11 parkinga). Posle čišćenja Nottinghamov test čine uglavnom C11001, C11004, C11005, C11006 i deo FRSTPR, 211, 212 i PHNXPR; PRLMNT, RYLCT i SB1-1 skoro da nemaju test podataka. Rezultati prvog pokretanja su sačuvani van repoa.
+
+**1. Sopstveni model svakog grada** (MAE u p.p., ciljno vreme 08–23 h):
+
+| Grad | Ukupno | 30 min | 2 h | 4 h | 8 h | Pre nedelju dana | Tipična kriva | Bolji od najboljeg pravila |
+|---|---|---|---|---|---|---|---|---|
+| Norfolk | 5,11 | 3,01 | 4,48 | 5,33 | 6,05 | 7,07 | 7,68 | 28% |
+| Birmingham | 3,77 | 2,30 | 3,35 | 4,39 | 5,15 | 8,64 | 8,37 | 55% |
+| Glasgow | 4,94 | 3,66 | 4,25 | 4,79 | 5,18 | 8,27 | 8,20 | 40% |
+| Nottingham | 6,41 | 4,15 | 5,22 | 6,24 | 6,79 | 9,05 | 12,44 | 29% |
+
+Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q dani (bez čišćenja isti skript daje 4,85, kao ponovni trening u koraku 5). Model je bolji od oba pravila **u svakom gradu i na svakom horizontu** (`gradovi_po_horizontu.csv`).
+
+**2. Prenos Norfolk modela bez ponovnog treninga** (MAE u p.p.; `gradovi_prenos.png`):
+
+| Grad | Sopstveni | Sopstveni bez identiteta | **Norfolk model** | Pre nedelju dana | 30 min: sopstveni bez id. / Norfolk | 4 h: sopstveni bez id. / Norfolk |
+|---|---|---|---|---|---|---|
+| Birmingham | 3,77 | 4,51 | **7,34** | 8,64 | 2,34 / 5,27 | 5,34 / 8,10 |
+| Glasgow | 4,94 | 5,16 | **6,38** | 8,27 | 3,52 / 3,76 | 5,08 / 6,62 |
+| Nottingham | 6,41 | 6,63 | **8,59** | 9,05 | 3,88 / 4,05 | 6,50 / 8,04 |
+
+**3. Performanse** (`gradovi_performanse.csv`): trening jednog modela traje 9–70 s po gradu (8 niti, 0,3–2,2 miliona redova). Predikcija jednog „ticka” traje 3–5 ms za 15–63 parkinga (jedan horizont, kao boje na mapi) i 6–14 ms za 15–63 parkinga × 31 horizont. Rad u realnom vremenu nije problem ni sa 63 parkinga.
+
+**Zaključci za rad:**
+1. **„Da li bi model radio u drugom gradu?” Da, ako se trenira na podacima tog grada.** Isti postupak, bez ikakvog podešavanja, daje MAE 3,8–6,4 p.p. u sva četiri grada i 28–55% je bolji od najboljeg jednostavnog pravila, na svakom horizontu. Nalaz da trenutno stanje odlučuje na kratkim, a istorija istog termina na dugim horizontima važi svuda (u svim gradovima greška raste sa horizontom do ~8–10 h).
+2. **„Koliko zavisi od Norwicha?” Postupak ne zavisi, naučeni model delimično zavisi.** Norfolk model bez ponovnog treninga je u drugim gradovima 1,2–2,8 p.p. lošiji od lokalnog modela sa istim ulazima, ali je i dalje bolji od pravila „pre nedelju dana” (Birmingham 7,3 naspram 8,6; Glasgow 6,4 naspram 8,3; Nottingham 8,6 naspram 9,0).
+3. **Kratkoročna dinamika se prenosi, dnevni ritam grada ne.** Na 30 min Norfolk model je u Glasgowu i Nottinghamu skoro jednak lokalnom (+0,2 p.p.): kako se parking puni i prazni iz trenutnog stanja je slično svuda. Na 4 h razlika je 1,5–2,8 p.p., jer se svaki grad puni i prazni u svoje vreme. Izuzetak je Birmingham, gde je prenos loš i na 30 min (5,27 naspram 2,34). Verovatan, ali neprovereni uzrok je drugačiji režim merenja (samo ~08–16:30, jedno očitavanje na 30 min) i drugačiji jutarnji ritam.
+4. **Praktična posledica za novi grad:** model bi trebalo trenirati na lokalnim podacima. Prema koraku 5 (dužina treninga), već 1 mesec podataka daje 5,44 p.p. na Norfolku, a 3 meseca 5,19. Do tada Norfolk model može da služi kao početno rešenje, bolje od jednostavnih pravila.
+5. **Kvalitet podataka** je važan nalaz sam po sebi: deo javno objavljenih „merenja” je kopija prethodne nedelje. Bez provere bi pravilo „pre nedelju dana” izgledalo kao jednako dobro kao model, a greška modela na B&Q kao gotovo nula. U radu treba opisati i pravilo čišćenja.
+6. **Ograničenja:** praznici su engleski i za Glasgow (škotski se delimično razlikuju; uticaj praznika u koraku 5 nije bio merljiv); Birmingham meri samo danju, pa ima malo dugih horizonata; posle čišćenja Nottinghamov test se uglavnom zasniva na 4–5 parkinga; hiperparametri nisu podešavani po gradu, pa su rezultati drugih gradova pre donja nego gornja granica.
 
 ### Korak 8 — Higijena projekta ✅
 
