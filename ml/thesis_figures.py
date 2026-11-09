@@ -11,6 +11,8 @@ Poglavlje 3.3 (pravilna evaluacija):
 Poglavlje 4.1 (stabla odlucivanja):
   rad_4_1_malo_stablo.png       stablo dubine 2 nauceno na nasim podacima
   rad_4_2_dubina_stabla.png     greska jednog stabla na treningu i testu u zavisnosti od dubine
+Poglavlje 4.2 (bagging i Random Forest):
+  rad_4_3_broj_stabala.png      greska na testu u zavisnosti od broja stabala (bagging i Random Forest)
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -334,12 +336,62 @@ def plot_tree_depth(train: pd.DataFrame, test: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+BEST_SINGLE_TREE_MAE = 5.90  # slika 4.2, dubina 12
+
+
+def plot_forest_size(train: pd.DataFrame, test: pd.DataFrame) -> None:
+    """Slika 4.3: greska na testu kada se prognoze prvih B stabala usrednje, za
+    bagging (svaka podela bira izmedju svih ulaza) i Random Forest (izmedju
+    nasumicne polovine ulaza). Podesavanja su ista kao u ml/compare_models.py
+    (100 stabala, svako vidi 10% trening skupa, najmanje 5 primera u listu)."""
+    import matplotlib.pyplot as plt
+    from sklearn.ensemble import RandomForestRegressor
+
+    from ml.compare_models import make_random_forest, tree_input
+
+    x_train, x_test = tree_input(train), tree_input(test).to_numpy(dtype=np.float32)
+    y_test = test["target"].to_numpy()
+    variants = {
+        "Random Forest (polovina ulaza po podeli)": make_random_forest(),
+        "bagging (svi ulazi po podeli)": RandomForestRegressor(**{**make_random_forest().get_params(), "max_features": 1.0}),
+    }
+    curves = {}
+    for name, forest in variants.items():
+        print(f"  {name}...")
+        forest.fit(x_train, train["target"])
+        running, maes = np.zeros(len(y_test)), []
+        for b, tree in enumerate(forest.estimators_, start=1):
+            running += tree.predict(x_test)
+            maes.append(100 * np.abs(np.clip(running / b, 0, 1) - y_test).mean())
+        curves[name] = np.array(maes)
+        print(f"    1 stablo: {maes[0]:.2f}, 10: {maes[9]:.2f}, 100: {maes[-1]:.2f}")
+    pd.DataFrame({"broj_stabala": np.arange(1, len(maes) + 1), **curves}).round(3).to_csv(
+        os.path.join(OUTPUT_DIR, "rad_4_3_broj_stabala.csv"), index=False)
+
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
+    styles = {"Random Forest (polovina ulaza po podeli)": COLORS["grad"], "bagging (svi ulazi po podeli)": "#1baf7a"}
+    for name, maes in curves.items():
+        ax.plot(np.arange(1, len(maes) + 1), maes, color=styles[name], linewidth=1.8, label=name)
+    ax.axhline(BEST_SINGLE_TREE_MAE, color=MUTED, linewidth=1, linestyle=":", label="najbolje jedno stablo (dubina 12)")
+    ax.axhline(XGBOOST_MAE, color=INK, linewidth=1, linestyle="--", label="XGBoost (400 stabala)")
+    ax.set_xscale("log")
+    ax.set_xticks([1, 2, 5, 10, 20, 50, 100], ["1", "2", "5", "10", "20", "50", "100"])
+    ax.set_xlabel("Broj stabala u ansamblu (logaritamska skala)", fontsize=9, color=MUTED)
+    ax.set_ylabel("MAE na testu (p.p.)", fontsize=9, color=MUTED)
+    _style_axes(ax)
+    ax.legend(frameon=False, fontsize=8, loc="upper right")
+    fig.tight_layout()
+    _save(fig, "rad_4_3_broj_stabala.png")
+    plt.close(fig)
+
+
 def tree_figures() -> None:
     from ml.data_prep import prepare_multi_horizon_dataset
 
     train, test = prepare_multi_horizon_dataset("norfolk")
     plot_small_tree(train)
     plot_tree_depth(train, test)
+    plot_forest_size(train, test)
 
 
 def main() -> None:
