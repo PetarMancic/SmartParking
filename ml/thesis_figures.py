@@ -17,6 +17,9 @@ Poglavlje 4.3 (gradient boosting):
   rad_4_4_boosting_iteracije.png  greska XGBoost-a na treningu i testu posle svakog dodatog stabla
 Poglavlje 4.5 (Ridge):
   rad_4_5_linearni_koeficijenti.png  koeficijenti linearne regresije po horizontu naspram jednog modela
+Poglavlje 4.6 (SHAP i ablacija), iz sacuvanih rezultata koraka 5 (ml/analyze_model.py):
+  rad_4_6_shap.png              prosecan |SHAP| doprinos ulaza po grupi horizonata
+  rad_4_7_ablacija.png          greska po horizontu za model bez pojedinih grupa ulaza
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -510,6 +513,77 @@ def plot_linear_coefficients(train: pd.DataFrame, test: pd.DataFrame) -> None:
     fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     _save(fig, "rad_4_5_linearni_koeficijenti.png")
+    plt.close(fig)
+
+
+FEATURE_NAMES_SR = {
+    "y_t": "zauzetost sada", "y_t1": "zauzetost pre 30 min", "y_t2": "zauzetost pre 1 h",
+    "delta": "promena za 30 min", "y_yesterday": "isto vreme juče", "y_lastweek": "isto vreme pre 7 dana",
+    "hour": "doba dana", "dow": "dan u nedelji", "weekend": "vikend", "holiday": "praznik",
+    "carpark": "parking", "capacity": "kapacitet", "horizon_minutes": "horizont",
+}
+# Sekvencijalna plava (kratki -> dugi horizonti), ista kao u ml/analyze_model.py.
+HORIZON_GROUP_COLORS = ["#86b6ef", "#2a78d6", "#104281"]
+
+
+def plot_shap_from_step5() -> None:
+    """Slika 4.6: prosecan |SHAP| doprinos ulaza (ml/output/analiza_doprinos.csv,
+    korak 5) - tacka po grupi horizonata, ulazi po ukupnom doprinosu."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "analiza_doprinos.csv"))
+    groups = list(dict.fromkeys(table["grupa_horizonata"]))  # redosled iz CSV-a: kratki, srednji, dugi
+    wide = table.pivot(index="feature", columns="grupa_horizonata", values="doprinos_pp")[groups]
+    wide = wide.loc[wide.mean(axis=1).sort_values().index]  # najvazniji gore
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.55))
+    y = np.arange(len(wide))
+    ax.hlines(y, wide.min(axis=1), wide.max(axis=1), color=GRID, linewidth=2, zorder=1)
+    labels = {"do 2 h": "horizont do 2 h", "preko 8 h": "horizont preko 8 h"}
+    for k, group in enumerate(groups):
+        name = labels.get(group, "horizont od 2 do 8 h")
+        ax.scatter(wide[group], y, color=HORIZON_GROUP_COLORS[k], s=28, zorder=2, label=name,
+                   edgecolors="white", linewidths=0.6)
+    ax.set_yticks(y, [FEATURE_NAMES_SR[f] for f in wide.index])
+    ax.set_xlabel("Prosečan |SHAP| doprinos prognozi (p.p.)", fontsize=9, color=MUTED)
+    ax.set_xlim(left=0)
+    _style_axes(ax)
+    ax.grid(axis="x", color=GRID, linewidth=0.8)
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(axis="y", colors=INK)
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    fig.tight_layout()
+    _save(fig, "rad_4_6_shap.png")
+    plt.close(fig)
+
+
+ABLATION_STYLE = {  # varijanta: (boja, marker, naziv u radu); "bez praznika" se ne crta - isto kao pun model
+    "pun model": (INK, "o", "pun model"),
+    "bez trenutnog stanja": ("#2a78d6", "s", "bez trenutnog stanja"),
+    "bez istog termina ranije": ("#eb6834", "D", "bez istog vremena juče i pre 7 dana"),
+    "samo kalendar i parking": ("#1baf7a", "^", "samo kalendar i parking"),
+    "bez identiteta parkinga": ("#e87ba4", "v", "bez oznake parkinga i kapaciteta"),
+}
+
+
+def plot_ablation_from_step5() -> None:
+    """Slika 4.7: MAE po horizontu za model bez pojedinih grupa ulaza
+    (ml/output/analiza_ablacija_po_horizontu.csv, korak 5)."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "analiza_ablacija_po_horizontu.csv"))
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.5))
+    for variant, (color, marker, label) in ABLATION_STYLE.items():
+        s = table[table["varijanta"] == variant]
+        ax.plot(s["horizon_minutes"] / 60, s["MAE"], color=color, marker=marker, markersize=3.5,
+                linewidth=2.2 if variant == "pun model" else 1.5, label=label, markevery=3)
+    ax.set_xlabel("Horizont prognoze (h)", fontsize=9, color=MUTED)
+    ax.set_ylabel("MAE na testu (p.p.)", fontsize=9, color=MUTED)
+    ax.set_ylim(0, 8)
+    _style_axes(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, 0.8))
+    _save(fig, "rad_4_7_ablacija.png")
     plt.close(fig)
 
 
