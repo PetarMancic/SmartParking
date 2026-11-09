@@ -71,6 +71,7 @@ smart-parking/
 │   ├── eval_recommender.py            # korak 3: evaluacija preporuke (simulirani vozači, nov.–dec.)
 │   ├── select_weights.py              # korak 6b: izbor pondera na validacionom periodu (okt.)
 │   ├── other_cities.py                # korak 7: model u drugim gradovima i prenos Norfolk modela
+│   ├── thesis_figures.py              # korak 9: dodatne slike za pisani rad (ml/output/rad_*.png)
 │   ├── compare_models.py              # korak 4: poređenje modela i baseline-ova
 │   ├── analyze_model.py               # korak 5: SHAP, ablacija, greške, nedostajući podaci
 │   ├── output/                        # CSV i PNG rezultati (idu u rad)
