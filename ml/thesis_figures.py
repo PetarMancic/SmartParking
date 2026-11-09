@@ -8,6 +8,9 @@ Poglavlje 3.2 (prognoza kao nadgledano ucenje):
   rad_3_3_primer_za_ucenje.png  sema: koji ulazi su poznati u trenutku t, sta je cilj
 Poglavlje 3.3 (pravilna evaluacija):
   rad_3_4_podela_podataka.png   hronoloska podela: trening, validacija i test
+Poglavlje 4.1 (stabla odlucivanja):
+  rad_4_1_malo_stablo.png       stablo dubine 2 nauceno na nasim podacima
+  rad_4_2_dubina_stabla.png     greska jednog stabla na treningu i testu u zavisnosti od dubine
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -226,10 +229,124 @@ def plot_data_split() -> None:
     plt.close(fig)
 
 
+TREE_FEATURES = {"y_t": "zauzetost sada", "y_lastweek": "isto vreme pre 7 dana", "horizon_minutes": "horizont"}
+TREE_DEPTHS = [1, 2, 3, 4, 6, 8, 10, 12, 15, 20, 25]
+TREE_SAMPLE = 500_000  # deo trening skupa za stabla, zbog brzine
+XGBOOST_MAE = 4.83  # model iz aplikacije (PROGRESS.md, korak 4)
+
+
+def _tree_label(feature: str, threshold: float) -> str:
+    if feature == "horizon_minutes":
+        return f"{TREE_FEATURES[feature]} ≤ {threshold / 60:.1f} h?".replace(".", ",")
+    return f"{TREE_FEATURES[feature]} ≤ {threshold * 100:.0f}%?"
+
+
+def plot_small_tree(train: pd.DataFrame) -> None:
+    """Slika 4.1: stablo dubine 2 nauceno na delu trening skupa, sa samo tri
+    ulaza, nacrtano sa pitanjima na srpskom (u cvorovima) i prognozom (u listovima)."""
+    import matplotlib.pyplot as plt
+    from sklearn.tree import DecisionTreeRegressor
+
+    sample = train.sample(TREE_SAMPLE, random_state=0)
+    features = list(TREE_FEATURES)
+    tree = DecisionTreeRegressor(max_depth=2, min_samples_leaf=1000, random_state=0)
+    tree.fit(sample[features], sample["target"])
+    t = tree.tree_
+
+    # Cvorovi u redosledu sklearn-a: 0 koren, zatim levo podstablo pa desno.
+    positions, depth_of = {}, {}
+
+    def place(node, x, width, depth):
+        positions[node], depth_of[node] = (x, 0.88 - depth * 0.38), depth
+        if t.children_left[node] != -1:
+            place(t.children_left[node], x - width / 2, width / 2, depth + 1)
+            place(t.children_right[node], x + width / 2, width / 2, depth + 1)
+
+    place(0, 0.5, 0.5, 0)
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
+    total = t.n_node_samples[0]
+    for node, (x, y) in positions.items():
+        left, right = t.children_left[node], t.children_right[node]
+        if left != -1:
+            for child, answer in ((left, "da"), (right, "ne")):
+                cx, cy = positions[child]
+                ax.plot([x, cx], [y - 0.06, cy + 0.07], color=MUTED, linewidth=1, zorder=1)
+                ax.text((x + cx) / 2 + (-0.02 if answer == "da" else 0.02), (y + cy) / 2, answer,
+                        ha="right" if answer == "da" else "left", va="center", fontsize=8, color=MUTED)
+            text, face = _tree_label(features[t.feature[node]], t.threshold[node]), "#eef3fb"
+        else:
+            share = 100 * t.n_node_samples[node] / total
+            text, face = f"prognoza: {t.value[node][0][0] * 100:.0f}%\n({share:.0f}% primera)", "#fdf0ea"
+        ax.text(x, y, text, ha="center", va="center", fontsize=8, color=INK, zorder=2,
+                bbox=dict(boxstyle="round,pad=0.45", facecolor=face, edgecolor=MUTED, linewidth=0.8))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    fig.tight_layout()
+    _save(fig, "rad_4_1_malo_stablo.png")
+    plt.close(fig)
+
+
+def plot_tree_depth(train: pd.DataFrame, test: pd.DataFrame) -> None:
+    """Slika 4.2: greska jednog stabla (svi ulazi) na treningu i testu za razne
+    dubine - plitko stablo je pregrubo, duboko "uci napamet" trening."""
+    import matplotlib.pyplot as plt
+    from sklearn.tree import DecisionTreeRegressor
+
+    from ml.data_prep import FEATURES
+
+    def model_input(frame):
+        x = frame[FEATURES].copy()
+        x["carpark"] = x["carpark"].cat.codes  # jedno stablo: sifra parkinga kao broj
+        return x
+
+    sample = train.sample(TREE_SAMPLE, random_state=0)
+    x_train, x_test = model_input(sample), model_input(test)
+    rows = []
+    for depth in TREE_DEPTHS:
+        tree = DecisionTreeRegressor(max_depth=depth, min_samples_leaf=1, random_state=0).fit(x_train, sample["target"])
+        rows.append({
+            "dubina": depth,
+            "MAE_trening": 100 * np.abs(tree.predict(x_train) - sample["target"].to_numpy()).mean(),
+            "MAE_test": 100 * np.abs(tree.predict(x_test) - test["target"].to_numpy()).mean(),
+        })
+        print(f"  dubina {depth}: trening {rows[-1]['MAE_trening']:.2f}, test {rows[-1]['MAE_test']:.2f}")
+    table = pd.DataFrame(rows)
+    table.round(3).to_csv(os.path.join(OUTPUT_DIR, "rad_4_2_dubina_stabla.csv"), index=False)
+
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
+    ax.plot(table["dubina"], table["MAE_trening"], color=COLORS["grad"], marker="o", markersize=4, linewidth=1.8,
+            label="jedno stablo, trening")
+    ax.plot(table["dubina"], table["MAE_test"], color=COLORS["Park & Ride"], marker="s", markersize=4, linewidth=1.8,
+            label="jedno stablo, test")
+    ax.axhline(XGBOOST_MAE, color=INK, linewidth=1, linestyle="--", label="XGBoost (400 stabala dubine 6), test")
+    best = table.loc[table["MAE_test"].idxmin()]
+    ax.annotate(f"najmanja greška na testu:\ndubina {best['dubina']:.0f}, MAE {best['MAE_test']:.2f}".replace(".", ","),
+                (best["dubina"], best["MAE_test"]), xytext=(10, 18), textcoords="offset points", fontsize=8,
+                color=INK, arrowprops=dict(arrowstyle="->", color=MUTED, lw=0.8))
+    ax.set_xlabel("Dubina stabla", fontsize=9, color=MUTED)
+    ax.set_ylabel("MAE (p.p.)", fontsize=9, color=MUTED)
+    ax.set_ylim(bottom=0)
+    _style_axes(ax)
+    ax.legend(frameon=False, fontsize=8, loc="upper right")
+    fig.tight_layout()
+    _save(fig, "rad_4_2_dubina_stabla.png")
+    plt.close(fig)
+
+
+def tree_figures() -> None:
+    from ml.data_prep import prepare_multi_horizon_dataset
+
+    train, test = prepare_multi_horizon_dataset("norfolk")
+    plot_small_tree(train)
+    plot_tree_depth(train, test)
+
+
 def main() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     plot_supervised_example()
     plot_data_split()
+    tree_figures()
     types = {p["park_id"]: p["type"] for p in parks_module.load_parks()}
     series = {k: s[s.index < TRAIN_END] for k, s in resample_per_park(load_raw("norfolk")).items()}
 
