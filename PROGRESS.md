@@ -530,6 +530,9 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
 - `ml/thesis_figures.py`: slike za rad koje ne pravi nijedan eksperiment, bez naslova u samoj slici (naslov ide u natpis ispod slike). Za potpoglavlje 3.1:
   - `rad_3_1_nedeljni_tok.png`: The Forum i Thickthorn, 11.–17.9.2017. The Forum je radnim danom (pon–sre) na vrhu 74–82%, a od četvrtka do nedelje 100%; Thickthorn radnim danom ~68–77%, subotom 46%, nedeljom ne radi.
   - `rad_3_2_autokorelacija.png`: prosečna autokorelacija po tipu (8 gradskih, 6 P&R; trening podaci; B&Q izostavljen zbog kopiranih podataka; pomaci sa manje od 1000 parova merenja izostavljeni). Gradski / P&R: 30 min 0,96 / 0,98; 12 h −0,28 / −0,04; 1 dan 0,75 / 0,77; 3 dana 0,64 / 0,48; **7 dana 0,86 / 0,85**; 14 dana 0,83 / 0,83. Isti dan pre nedelju dana je sličniji od juče, što opravdava ulaze `y_yesterday` i `y_lastweek`.
+  - `rad_3_3_primer_za_ucenje.png` (potpoglavlje 3.2): šema jednog primera za učenje (ulazi poznati u trenutku t, kalendar ciljnog trenutka i horizont; izlaz y(t + h)).
+  - Sve slike za rad su široke 16 cm (širina teksta), da natpisi od 8–9 pt ostanu čitljivi na papiru.
+- U Word fajl su ubačeni nacrti potpoglavlja 3.1 i 3.2 (tekst, slike 3.1–3.3, formule 3.1 i 3.2, reference [9] i [10]).
 
 ### Korak 8 — Higijena projekta ✅
 

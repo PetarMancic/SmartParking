@@ -4,6 +4,8 @@ Slike za pisani rad (korak 9) koje ne pravi nijedan od eksperimenata.
 Poglavlje 3.1 (vremenske serije):
   rad_3_1_nedeljni_tok.png      zauzetost gradskog i P&R parkinga kroz jednu nedelju
   rad_3_2_autokorelacija.png    autokorelacija zauzetosti za pomake do dve nedelje
+Poglavlje 3.2 (prognoza kao nadgledano ucenje):
+  rad_3_3_primer_za_ucenje.png  sema: koji ulazi su poznati u trenutku t, sta je cilj
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -44,6 +46,8 @@ EXCLUDED_FROM_ACF = {"C06391"}  # B&Q Boundary Road: kopirani podaci
 COLORS = {"grad": "#2a78d6", "Park & Ride": "#eb6834"}
 INK, MUTED, GRID = "#21201c", "#52514e", "#e4e3dc"
 DAY_NAMES = ["pon", "uto", "sre", "čet", "pet", "sub", "ned"]
+# Sirina slike = sirina teksta u radu (16 cm), da natpisi od 8-9 pt ostanu te velicine na papiru.
+FIG_WIDTH_IN = 6.3
 
 
 def _style_axes(ax) -> None:
@@ -68,7 +72,7 @@ def plot_week(series: dict[str, pd.Series], types: dict[str, str]) -> None:
     import matplotlib.pyplot as plt
 
     week = pd.date_range(WEEK_START, WEEK_START + pd.Timedelta(days=7), freq="30min", inclusive="left")
-    fig, ax = plt.subplots(figsize=(8, 3.6))
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
     for park_id, label in WEEK_PARKS.items():
         values = series[park_id].reindex(week) * 100
         ax.plot(week, values, color=COLORS[types[park_id]], linewidth=1.8, label=label)
@@ -107,7 +111,7 @@ def plot_autocorrelation(acf_by_type: dict[str, np.ndarray]) -> None:
     """Slika 3.2: prosecna autokorelacija po tipu parkinga; vrhovi na 1 i 7 dana."""
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(8, 3.6))
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
     for park_type, acf in acf_by_type.items():
         lags_days = np.arange(1, len(acf) + 1) / STEPS_PER_DAY
         label = "gradski parkinzi" if park_type == "grad" else "Park & Ride parkinzi"
@@ -117,20 +121,71 @@ def plot_autocorrelation(acf_by_type: dict[str, np.ndarray]) -> None:
         ax.annotate(text, (day, 1.08), xytext=(4, 0), textcoords="offset points", fontsize=8, color=INK, va="center")
     ax.set_xticks(range(0, MAX_LAG_DAYS + 1))
     ax.set_xlim(0, MAX_LAG_DAYS)
-    ax.set_ylim(-0.6, 1.35)  # prostor iznad krivih za natpise i legendu
+    ax.set_ylim(-0.6, 1.2)  # prostor iznad krivih za natpise
     ax.set_yticks([-0.5, 0, 0.5, 1.0])
     ax.axhline(0, color=MUTED, linewidth=0.8)
     ax.set_xlabel("Pomak (dani)", fontsize=9, color=MUTED)
     ax.set_ylabel("Autokorelacija", fontsize=9, color=MUTED)
     _style_axes(ax)
-    ax.legend(frameon=False, fontsize=8, loc="upper right", ncol=2)
-    fig.tight_layout()
+    # Legenda iznad grafika, da ne prekriva natpise na 1 i 7 dana.
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     _save(fig, "rad_3_2_autokorelacija.png")
+    plt.close(fig)
+
+
+def plot_supervised_example() -> None:
+    """Slika 3.3: sema (nije u razmeri) jednog primera za ucenje. Ulazi su
+    vrednosti poznate u trenutku t, cilj je zauzetost u trenutku t + h."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyArrowPatch
+
+    recent, seasonal, target = "#2a78d6", "#1baf7a", "#eb6834"  # validirana paleta (dataviz)
+    x = {"lastweek": 0.6, "yesterday": 2.4, "t2": 4.2, "t1": 4.75, "t": 5.3, "target": 7.6}
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.3625))
+    # Vremenska osa sa prekidima (sema nije u razmeri).
+    for a, b in ((0.0, 1.35), (1.65, 3.15), (3.45, 8.4)):
+        ax.plot([a, b], [0, 0], color=MUTED, linewidth=1.2)
+    for gap in (1.5, 3.3):
+        ax.text(gap, 0, "//", ha="center", va="center", fontsize=11, color=MUTED)
+    ax.annotate("", (8.55, 0), (8.35, 0), arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.2))
+    ax.text(8.55, -0.28, "vreme", ha="right", fontsize=8, color=MUTED)
+    ax.plot([x["t"], x["t"]], [-0.15, 1.35], color=INK, linewidth=1, linestyle="--")
+    ax.text(x["t"], 1.45, "sada (trenutak prognoze)", ha="center", fontsize=8, color=INK)
+
+    points = [
+        ("lastweek", "t+h−7 dana", seasonal, "s"), ("yesterday", "t+h−1 dan", seasonal, "s"),
+        ("t2", "t−2", recent, "o"), ("t1", "t−1", recent, "o"), ("t", "t", recent, "o"),
+        ("target", "t+h", target, "D"),
+    ]
+    for key, label, color, marker in points:
+        ax.plot(x[key], 0, marker=marker, markersize=9, color=color, markeredgecolor="white", zorder=3)
+        ax.text(x[key], -0.32, label, ha="center", va="top", fontsize=8, color=INK)
+
+    ax.text(x["t"] - 0.12, 0.42, "ulazi: poslednje vrednosti\ny(t), y(t−1), y(t−2)", ha="right", fontsize=8,
+            color=recent)
+    ax.text((x["lastweek"] + x["yesterday"]) / 2, 0.42, "ulazi: isto vreme kao cilj, ranije\n(pre nedelju dana i juče)",
+            ha="center", fontsize=8, color=seasonal)
+    ax.text(x["target"], 0.42, "izlaz: y(t+h)", ha="center", fontsize=8, color=target)
+    ax.text(x["target"], -0.75, "ulaz: kalendar ciljnog trenutka\n(sat, dan, vikend, praznik)", ha="center",
+            va="top", fontsize=8, color=INK)
+    horizon = FancyArrowPatch((x["t"], 1.05), (x["target"], 1.05), arrowstyle="<->", mutation_scale=10,
+                              color=INK, linewidth=1)
+    ax.add_patch(horizon)
+    ax.text((x["t"] + x["target"]) / 2, 1.13, "horizont h (i on je ulaz)", ha="center", fontsize=8, color=INK)
+
+    ax.set_xlim(-0.1, 8.7)
+    ax.set_ylim(-1.35, 1.7)
+    ax.axis("off")
+    fig.tight_layout()
+    _save(fig, "rad_3_3_primer_za_ucenje.png")
     plt.close(fig)
 
 
 def main() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    plot_supervised_example()
     types = {p["park_id"]: p["type"] for p in parks_module.load_parks()}
     series = {k: s[s.index < TRAIN_END] for k, s in resample_per_park(load_raw("norfolk")).items()}
 
