@@ -15,6 +15,8 @@ Poglavlje 4.2 (bagging i Random Forest):
   rad_4_3_broj_stabala.png      greska na testu u zavisnosti od broja stabala (bagging i Random Forest)
 Poglavlje 4.3 (gradient boosting):
   rad_4_4_boosting_iteracije.png  greska XGBoost-a na treningu i testu posle svakog dodatog stabla
+Poglavlje 4.5 (Ridge):
+  rad_4_5_linearni_koeficijenti.png  koeficijenti linearne regresije po horizontu naspram jednog modela
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -449,6 +451,65 @@ def draw_boosting_rounds() -> None:
     fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
     fig.tight_layout(rect=(0, 0, 1, 0.9))
     _save(fig, "rad_4_4_boosting_iteracije.png")
+    plt.close(fig)
+
+
+LINEAR_FEATURES = {"y_t": "zauzetost sada", "y_yesterday": "isto vreme juče", "y_lastweek": "isto vreme pre 7 dana"}
+LINEAR_COLORS = {"y_t": "#2a78d6", "y_yesterday": "#eb6834", "y_lastweek": "#1baf7a"}  # validirana paleta
+
+
+def _ols(frame: pd.DataFrame) -> np.ndarray:
+    """Obicna linearna regresija sa slobodnim clanom: [b0, b_y_t, b_y_yesterday, b_y_lastweek]."""
+    x = np.column_stack([np.ones(len(frame))] + [frame[f].to_numpy() for f in LINEAR_FEATURES])
+    return np.linalg.lstsq(x, frame["target"].to_numpy(), rcond=None)[0]
+
+
+def _ols_mae(frame: pd.DataFrame, coef: np.ndarray) -> float:
+    x = np.column_stack([np.ones(len(frame))] + [frame[f].to_numpy() for f in LINEAR_FEATURES])
+    return 100 * np.abs(np.clip(x @ coef, 0, 1) - frame["target"].to_numpy()).mean()
+
+
+def plot_linear_coefficients(train: pd.DataFrame, test: pd.DataFrame) -> None:
+    """Slika 4.5: koeficijenti linearne regresije (tri ulaza) naucene posebno za
+    svaki horizont, naspram jednog modela za sve horizonte. Pokazuje interakciju
+    horizonta i trenutnog stanja koju jedan linearni model ne moze da nauci."""
+    import matplotlib.pyplot as plt
+
+    cols = list(LINEAR_FEATURES) + ["target", "horizon_minutes"]
+    train = train[cols].dropna()
+    test = test[cols].dropna()
+    pooled = _ols(train)
+    per_h = {h: _ols(g) for h, g in train.groupby("horizon_minutes")}
+    mae_pooled = _ols_mae(test, pooled)
+    mae_per_h = 100 * np.mean(np.concatenate([
+        np.abs(np.clip(np.column_stack([np.ones(len(g))] + [g[f].to_numpy() for f in LINEAR_FEATURES]) @ per_h[h], 0, 1)
+               - g["target"].to_numpy()) for h, g in test.groupby("horizon_minutes")]))
+    rows = [{"horizont_min": h, **{f: c[i + 1] for i, f in enumerate(LINEAR_FEATURES)}} for h, c in per_h.items()]
+    table = pd.DataFrame(rows)
+    table.round(4).to_csv(os.path.join(OUTPUT_DIR, "rad_4_5_linearni_koeficijenti.csv"), index=False)
+    print("  jedan model za sve horizonte:", {f: round(pooled[i + 1], 3) for i, f in enumerate(LINEAR_FEATURES)})
+    print(table[table["horizont_min"].isin([30, 120, 240, 480, 900])].round(3).to_string(index=False))
+    print(f"  MAE na testu (redovi sa sva tri ulaza): jedan model {mae_pooled:.2f}, poseban po horizontu {mae_per_h:.2f}")
+    for minutes in (30, 480):
+        g = test[test["horizon_minutes"] == minutes]
+        print(f"  MAE na {minutes} min: jedan model {_ols_mae(g, pooled):.2f}, poseban {_ols_mae(g, per_h[minutes]):.2f}")
+
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
+    hours = table["horizont_min"] / 60
+    for i, (feature, label) in enumerate(LINEAR_FEATURES.items()):
+        color = LINEAR_COLORS[feature]
+        ax.plot(hours, table[feature], color=color, linewidth=1.8, marker="o", markersize=3, label=label)
+        ax.axhline(pooled[i + 1], color=color, linewidth=1, linestyle="--")
+    ax.axhline(0, color=MUTED, linewidth=0.8)
+    ax.text(hours.iloc[-1], pooled[1], "isprekidano: jedan model\nza sve horizonte", ha="right", va="bottom",
+            fontsize=8, color=INK)
+    ax.set_xlabel("Horizont prognoze (h)", fontsize=9, color=MUTED)
+    ax.set_ylabel("Koeficijent uz ulaz", fontsize=9, color=MUTED)
+    _style_axes(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    _save(fig, "rad_4_5_linearni_koeficijenti.png")
     plt.close(fig)
 
 
