@@ -13,6 +13,8 @@ Poglavlje 4.1 (stabla odlucivanja):
   rad_4_2_dubina_stabla.png     greska jednog stabla na treningu i testu u zavisnosti od dubine
 Poglavlje 4.2 (bagging i Random Forest):
   rad_4_3_broj_stabala.png      greska na testu u zavisnosti od broja stabala (bagging i Random Forest)
+Poglavlje 4.3 (gradient boosting):
+  rad_4_4_boosting_iteracije.png  greska XGBoost-a na treningu i testu posle svakog dodatog stabla
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -385,6 +387,71 @@ def plot_forest_size(train: pd.DataFrame, test: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+BOOSTING_ROUNDS = 800
+APP_MODEL_ROUNDS = 400  # model u aplikaciji (ml/train_norfolk.py)
+
+
+def plot_boosting_rounds(train: pd.DataFrame, test: pd.DataFrame) -> None:
+    """Slika 4.4: MAE na treningu i testu posle svakog dodatog stabla, za XGBoost
+    sa parametrima modela iz aplikacije (osim broja stabala)."""
+    import joblib
+    import matplotlib.pyplot as plt
+    import xgboost as xgb
+
+    from ml.data_prep import FEATURES
+
+    params = joblib.load(os.path.join(os.path.dirname(__file__), "model_norfolk.joblib"))["model"].get_params()
+    params.update(n_estimators=BOOSTING_ROUNDS, n_jobs=8, eval_metric="mae")
+    model = xgb.XGBRegressor(**params)
+    test = test.assign(carpark=pd.Categorical(test["carpark"].astype(str), categories=train["carpark"].cat.categories))
+    model.fit(train[FEATURES], train["target"], eval_set=[(train[FEATURES], train["target"]),
+                                                          (test[FEATURES], test["target"])], verbose=False)
+    history = model.evals_result()
+    curves = {"trening": 100 * np.array(history["validation_0"]["mae"]),
+              "test": 100 * np.array(history["validation_1"]["mae"])}
+    rounds = np.arange(1, BOOSTING_ROUNDS + 1)
+    pd.DataFrame({"broj_stabala": rounds, **{f"MAE_{k}": v for k, v in curves.items()}}).round(3).to_csv(
+        os.path.join(OUTPUT_DIR, "rad_4_4_boosting_iteracije.csv"), index=False)
+    for b in (1, 10, 50, 100, 200, 400, 800):
+        print(f"  {b} stabala: trening {curves['trening'][b - 1]:.2f}, test {curves['test'][b - 1]:.2f}")
+    draw_boosting_rounds()
+
+
+def draw_boosting_rounds() -> None:
+    """Crta sliku 4.4 iz sacuvanog CSV-a: (a) ceo tok, (b) uvecano 100-800 stabala,
+    gde se vidi razdvajanje greske na treningu i testu."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "rad_4_4_boosting_iteracije.csv"))
+    fig, (ax_all, ax_zoom) = plt.subplots(1, 2, figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.42))
+    for ax in (ax_all, ax_zoom):
+        ax.plot(table["broj_stabala"], table["MAE_trening"], color=COLORS["grad"], linewidth=1.8, label="trening")
+        ax.plot(table["broj_stabala"], table["MAE_test"], color=COLORS["Park & Ride"], linewidth=1.8, label="test")
+        ax.axvline(APP_MODEL_ROUNDS, color=MUTED, linewidth=1, linestyle=":")
+        _style_axes(ax)
+        ax.set_xlabel("Broj stabala", fontsize=9, color=MUTED)
+    ax_all.set_xscale("log")
+    ax_all.set_xticks([1, 10, 100, 800], ["1", "10", "100", "800"])
+    ax_all.set_ylim(0, 27)
+    ax_all.set_ylabel("MAE (p.p.)", fontsize=9, color=MUTED)
+    ax_all.set_title("a) ceo tok (logaritamska skala)", fontsize=9, color=INK, loc="left")
+    zoom = table[table["broj_stabala"] >= 100]
+    ax_zoom.set_xlim(100, BOOSTING_ROUNDS)
+    ax_zoom.set_ylim(3.8, 5.6)
+    ax_zoom.set_title("b) uvećano: od 100 do 800 stabala", fontsize=9, color=INK, loc="left")
+    ax_zoom.annotate(f"model u aplikaciji: {APP_MODEL_ROUNDS} stabala", (APP_MODEL_ROUNDS, 3.92), xytext=(5, 0),
+                     textcoords="offset points", ha="left", va="center", fontsize=8, color=INK)
+    for col, color in (("MAE_trening", COLORS["grad"]), ("MAE_test", COLORS["Park & Ride"])):
+        last = zoom[col].iloc[-1]
+        ax_zoom.annotate(f"{last:.2f}".replace(".", ","), (BOOSTING_ROUNDS, last), xytext=(-2, 6),
+                         textcoords="offset points", ha="right", fontsize=8, color=color)
+    handles, labels = ax_all.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    _save(fig, "rad_4_4_boosting_iteracije.png")
+    plt.close(fig)
+
+
 def tree_figures() -> None:
     from ml.data_prep import prepare_multi_horizon_dataset
 
@@ -392,6 +459,7 @@ def tree_figures() -> None:
     plot_small_tree(train)
     plot_tree_depth(train, test)
     plot_forest_size(train, test)
+    plot_boosting_rounds(train, test)
 
 
 def main() -> None:
