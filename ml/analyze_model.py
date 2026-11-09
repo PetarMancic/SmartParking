@@ -15,6 +15,9 @@ Sve se radi na istoj hronoloskoj podeli kao u koraku 4 (trening pre
   duzina        - ponovni trening na 2 nedelje / 1 / 3 / 6 / ~11 meseci
   specijalizovani - jedan model za sve horizonte naspram posebnog modela za
                   30 min, 1 h i 2 h
+  podela        - nasumicna naspram hronoloske podele: koliko nasumicna
+                  podela precenjuje tacnost (curenje informacija; korak 9,
+                  potpoglavlje 3.3 rada)
 
 Delovi doprinos/greske/nedostajuci koriste model iz aplikacije
 (ml/model_norfolk.joblib). Ablacija/duzina/specijalizovani treniraju nove
@@ -551,9 +554,47 @@ def part_specialized(bundle: dict, train: pd.DataFrame, test: pd.DataFrame) -> N
     print(table.to_string(index=False))
 
 
+# ------------------------------------------------------------------ podela
+
+RANDOM_TEST_SHARE = 0.16  # priblizno isti udeo kao test period (373 hilj. od 2,38 mil. redova)
+
+
+def part_split(bundle: dict, train: pd.DataFrame, test: pd.DataFrame) -> None:
+    """Nasumicna naspram hronoloske podele. Nasumicna podela se pravi samo nad
+    podacima pre 1.10.2017, pa model ne vidi buducnost; ipak, susedni trenuci su
+    skoro isti, a isti ciljni trenutak se ponavlja za 31 horizont, pa ga model
+    "vidi" u treningu. Zato greska na nasumicnih 16% izgleda manja nego sto je
+    greska istog modela na stvarnoj buducnosti (oktobar-decembar)."""
+    params = retrain_params(bundle)
+    is_check = np.random.default_rng(SEED).random(len(train)) < RANDOM_TEST_SHARE
+    random_train, random_check = train[~is_check], train[is_check]
+
+    print(f"  hronoloski: trening {len(train)} redova...")
+    chrono_pred, _ = train_and_predict(params, train, test, FEATURES)
+    print(f"  nasumicno: trening {len(random_train)}, provera {len(random_check)} redova...")
+    model = xgb.XGBRegressor(**params)
+    model.fit(random_train[FEATURES], random_train["target"])
+    random_check_pred = np.clip(model.predict(random_check[FEATURES]), 0, 1)
+    random_future_pred = np.clip(model.predict(test[FEATURES]), 0, 1)
+
+    rows = []
+    for name, frame, pred in (
+        ("hronoloska podela: test okt.-dec. 2017", test, chrono_pred),
+        ("nasumicna podela: provera na nasumicnih 16% (pre okt.)", random_check, random_check_pred),
+        ("nasumicna podela: isti model na okt.-dec. 2017", test, random_future_pred),
+    ):
+        horizon_mae = mae_by_horizon(frame, pred)
+        rows.append({"varijanta": name, "n": len(frame), "MAE": round(mae_pp(frame["target"], pred), 2),
+                     **{f"MAE_{h}min": round(horizon_mae[h], 2) for h in REPORT_HORIZONS_MIN}})
+    table = pd.DataFrame(rows)
+    table.to_csv(os.path.join(OUTPUT_DIR, "analiza_podela.csv"), index=False, encoding="utf-8-sig")
+    print("\n=== Nasumicna naspram hronoloske podele ===")
+    print(table.to_string(index=False))
+
+
 # -------------------------------------------------------------------- main
 
-PARTS = ["doprinos", "greske", "nedostajuci", "ablacija", "duzina", "specijalizovani"]
+PARTS = ["doprinos", "greske", "nedostajuci", "ablacija", "duzina", "specijalizovani", "podela"]
 
 
 def main(parts: list[str]) -> None:
@@ -586,6 +627,8 @@ def main(parts: list[str]) -> None:
             part_train_length(bundle, train, test)
         elif part == "specijalizovani":
             part_specialized(bundle, train, test)
+        elif part == "podela":
+            part_split(bundle, train, test)
         print(f"({part}: {time.perf_counter() - start:.0f} s)")
 
 

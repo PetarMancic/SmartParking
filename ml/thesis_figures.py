@@ -6,6 +6,8 @@ Poglavlje 3.1 (vremenske serije):
   rad_3_2_autokorelacija.png    autokorelacija zauzetosti za pomake do dve nedelje
 Poglavlje 3.2 (prognoza kao nadgledano ucenje):
   rad_3_3_primer_za_ucenje.png  sema: koji ulazi su poznati u trenutku t, sta je cilj
+Poglavlje 3.3 (pravilna evaluacija):
+  rad_3_4_podela_podataka.png   hronoloska podela: trening, validacija i test
 
 Slike nemaju naslov u samoj slici: u radu naslov ide u natpis ispod slike
 („Slika 3.1. ...”), po uputstvu „Forma master rada”. Natpisi su na srpskom, a ose
@@ -183,9 +185,51 @@ def plot_supervised_example() -> None:
     plt.close(fig)
 
 
+MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "avg", "sep", "okt", "nov", "dec"]
+
+
+def plot_data_split() -> None:
+    """Slika 3.4: hronoloska podela podataka za model predikcije i za izbor
+    pondera preporuke (validacija oktobar, test novembar-decembar)."""
+    import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
+
+    train_c, valid_c, test_c = "#2a78d6", "#1baf7a", "#eb6834"  # validirana paleta (dataviz)
+    start, cut = pd.Timestamp("2016-10-26"), pd.Timestamp("2017-10-01")
+    nov, end = pd.Timestamp("2017-11-01"), pd.Timestamp("2017-12-06")
+    rows = [
+        ("Model predikcije", [(start, cut, train_c, "trening (11 meseci)"), (cut, end, test_c, "test")]),
+        ("Izbor pondera preporuke", [(cut, nov, valid_c, None), (nov, end, test_c, "test")]),
+    ]
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.3))
+    for y, (_, bars) in enumerate(reversed(rows)):
+        for a, b, color, label in bars:
+            ax.barh(y, b - a, left=a, height=0.55, color=color, edgecolor="white", linewidth=1.5)
+            if label:
+                ax.text(a + (b - a) / 2, y, label, ha="center", va="center", fontsize=8, color="white")
+    # Traka za oktobar je preuska za natpis - natpis levo od nje, u boji trake.
+    ax.text(cut - pd.Timedelta(days=6), 0, "validacija (oktobar)", ha="right", va="center", fontsize=8, color=valid_c)
+    ax.set_yticks(range(len(rows)), [name for name, _ in reversed(rows)])
+    ax.axvline(cut, color=INK, linewidth=1, linestyle="--")
+    ax.text(cut, 1.48, "1.10.2017: model vidi samo podatke pre ove granice", ha="right", fontsize=8, color=INK)
+    ax.set_xlim(start - pd.Timedelta(days=5), end + pd.Timedelta(days=5))
+    ax.set_ylim(-0.5, 1.75)
+    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[1, 4, 7, 10]))
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(
+        lambda v, _: f"{MONTHS[mdates.num2date(v).month - 1]} {mdates.num2date(v).year}"))
+    _style_axes(ax)
+    ax.grid(False)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0, labelsize=9, colors=INK)
+    fig.tight_layout()
+    _save(fig, "rad_3_4_podela_podataka.png")
+    plt.close(fig)
+
+
 def main() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     plot_supervised_example()
+    plot_data_split()
     types = {p["park_id"]: p["type"] for p in parks_module.load_parks()}
     series = {k: s[s.index < TRAIN_END] for k, s in resample_per_park(load_raw("norfolk")).items()}
 

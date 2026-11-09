@@ -533,6 +533,8 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
   - `rad_3_3_primer_za_ucenje.png` (potpoglavlje 3.2): šema jednog primera za učenje (ulazi poznati u trenutku t, kalendar ciljnog trenutka i horizont; izlaz y(t + h)).
   - Sve slike za rad su široke 16 cm (širina teksta), da natpisi od 8–9 pt ostanu čitljivi na papiru.
 - U Word fajl su ubačeni nacrti potpoglavlja 3.1 i 3.2 (tekst, slike 3.1–3.3, formule 3.1 i 3.2, reference [9] i [10]).
+- **Nasumična naspram hronološke podele** (`python ml/analyze_model.py podela`, `ml/output/analiza_podela.csv`; za potpoglavlje 3.3). Isti model i parametri. Hronološki (trening do 30.9.2017, test okt.–dec.): MAE **4,85**. Nasumično 84/16 unutar perioda pre oktobra: provera na nasumičnih 16% daje **4,41**, a isti model na okt.–dec. **4,84**. Nasumična podela precenjuje tačnost za ~9% (na 30 min 2,69 naspram 2,87; na 8 h 5,01 naspram 5,71). Sam model nije lošiji (4,84 ≈ 4,85), samo je procena optimistična. Deo razlike može poticati i od toga što je period okt.–dec. teži od proseka godine; efekat nije razdvojen.
+- `rad_3_4_podela_podataka.png` (potpoglavlje 3.3): vremenska linija podele (model: trening do 30.9.2017 / test; preporuka: validacija okt. / test nov.–dec.).
 
 ### Korak 8 — Higijena projekta ✅
 
