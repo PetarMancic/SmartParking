@@ -29,6 +29,9 @@ Poglavlje 7 (model predikcije), iz sacuvanih rezultata koraka 4, 5 i 7 (bez novo
 Poglavlje 8 (sistem preporuke):
   rad_8_1_delovi_skora.png       sema tri dela skora: vreme voznje, blizina cilju, dostupnost pri dolasku
   rad_8_2_izbor_pondera.png      izbor pondera na oktobru 2017: 231 kombinacija i Pareto front (iz koraka 6b)
+Poglavlje 9 (arhitektura):
+  rad_9_1_arhitektura.png        moduli sistema: priprema i ucenje, backend, frontend
+  (snimci ekrana aplikacije nisu iz ovog skripta: rad_9_*_*.png iz headless Chrome-a, vidi PROGRESS.md)
 Poglavlje 4.6 (SHAP i ablacija), iz sacuvanih rezultata koraka 5 (ml/analyze_model.py):
   rad_4_6_shap.png              prosecan |SHAP| doprinos ulaza po grupi horizonata
   rad_4_7_ablacija.png          greska po horizontu za model bez pojedinih grupa ulaza
@@ -930,6 +933,72 @@ def plot_weight_selection() -> None:
     fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
     fig.tight_layout(rect=(0, 0, 1, 0.85))
     _save(fig, "rad_8_2_izbor_pondera.png")
+    plt.close(fig)
+
+
+def plot_architecture() -> None:
+    """Slika 9.1: arhitektura sistema - priprema i ucenje (offline), backend i frontend."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch
+
+    offline, backend, frontend = "#eb6834", "#2a78d6", "#1baf7a"  # validirana paleta
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.66))
+    panels = (((0.1, 3.7), offline, "Priprema i učenje (offline)"), ((4.1, 7.9), backend, "Backend (Python, FastAPI)"),
+              ((8.3, 11.9), frontend, "Frontend (Next.js, Leaflet)"))
+    for (x0, x1), color, title in panels:
+        ax.add_patch(FancyBboxPatch((x0, 0.35), x1 - x0, 7.15, boxstyle="round,pad=0,rounding_size=0.25",
+                                    facecolor=color, alpha=0.07, edgecolor=color, linewidth=1.2))
+        ax.text((x0 + x1) / 2, 7.2, title, ha="center", va="center", fontsize=8.5, color=INK, fontweight="bold")
+
+    def box(x, y, text, color, w=3.1, h=0.95, dashed=False):
+        ax.add_patch(FancyBboxPatch((x - w / 2, y - h / 2), w, h, boxstyle="round,pad=0,rounding_size=0.12",
+                                    facecolor="white", edgecolor=color, linewidth=1.3,
+                                    linestyle=(0, (3, 2)) if dashed else "-"))
+        ax.text(x, y, text, ha="center", va="center", fontsize=7.5, color=INK, linespacing=1.3)
+
+    def arrow(xy_from, xy_to, label=None, label_xy=None, ha="center"):
+        ax.annotate("", xy=xy_to, xytext=xy_from, arrowprops={"arrowstyle": "-|>", "color": MUTED, "lw": 1.1,
+                                                             "shrinkA": 0, "shrinkB": 0})
+        if label:
+            ax.text(*label_xy, label, ha=ha, va="center", fontsize=6.8, color=MUTED, linespacing=1.2)
+
+    lx, mx, rx = 1.9, 6.0, 10.1
+    box(lx, 6.2, "Norfolk.csv\n(istorijska merenja)", offline)
+    box(lx, 4.7, "priprema podataka i učenje\n(data_prep.py,\ntrain_norfolk.py)", offline, h=1.2)
+    box(lx, 3.2, "naučeni model\n(model_norfolk.joblib)", offline)
+    box(lx, 1.5, "evaluacija i izbor pondera\n(eval_recommender.py,\nselect_weights.py)", offline, h=1.25)
+    arrow((lx, 5.72), (lx, 5.3))
+    arrow((lx, 4.1), (lx, 3.68), "trening pre\n1.10.2017", (lx + 0.15, 3.89), ha="left")
+
+    box(mx, 6.2, "ReplaySource\n(merenja samo do „sada”)", backend)
+    box(mx, 4.95, "SimulationClock\n(sat, korak 30 min)", backend)
+    box(mx, 3.7, "Predictor\n(ulazi iz prošlosti, prognoza)", backend)
+    box(mx, 2.45, "Recommender\n(skor, rangiranje)", backend)
+    box(mx, 1.2, "REST API (main.py)", backend, h=0.75)
+    arrow((lx + 1.55, 6.2), (mx - 1.55, 6.2), "isti\npodaci", (3.95, 6.62))
+    for y_top, y_bottom in ((5.72, 5.43), (4.47, 4.18), (3.22, 2.93), (1.97, 1.58)):
+        arrow((mx, y_top), (mx, y_bottom))
+    arrow((lx + 1.55, 3.2), (mx - 1.55, 3.55))
+    ax.text(3.9, 3.05, "model", ha="center", fontsize=6.8, color=MUTED)
+    arrow((lx + 1.55, 1.5), (mx - 1.55, 2.3), "iste\nfunkcije", (3.8, 2.6))
+
+    box(rx, 6.2, "OSRM (javni servis)\nruta za prikaz na mapi", frontend, dashed=True)
+    box(rx, 4.7, "mapa sa zauzetošću\n(markeri, ruta, legenda)", frontend)
+    box(rx, 3.45, "top preporuke\n(delovi skora)", frontend)
+    box(rx, 2.2, "predikcija naspram\nstvarnosti (demo)", frontend)
+    arrow((rx, 5.72), (rx, 5.18))
+    ax.annotate("", xy=(rx - 1.55, 1.2), xytext=(mx + 1.55, 1.2),
+                arrowprops={"arrowstyle": "<|-|>", "color": MUTED, "lw": 1.1, "shrinkA": 0, "shrinkB": 0})
+    ax.text(8.15, 1.45, "JSON,\nna 3 s", ha="center", va="bottom", fontsize=6.8, color=MUTED, linespacing=1.2)
+    ax.plot([rx - 1.55, rx - 1.75, rx - 1.75], [1.2, 1.2, 4.7], color=MUTED, lw=1.1)
+    for y in (4.7, 3.45, 2.2):
+        ax.plot([rx - 1.75, rx - 1.55], [y, y], color=MUTED, lw=1.1)
+
+    ax.set_xlim(0, 12)
+    ax.set_ylim(0.2, 7.6)
+    ax.axis("off")
+    fig.tight_layout(pad=0.2)
+    _save(fig, "rad_9_1_arhitektura.png")
     plt.close(fig)
 
 

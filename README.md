@@ -283,8 +283,9 @@ zapravo nije merila saobraćaj; zamenjena je po odluci mentora (vidi „Ogranič
   panelu; preporuka koristi sopstvenu procenu vremena dolaska.
 - **Horizont predikcije je ograničen na ~15.5h unapred** (van toga se vrednost clamp-uje
   na maksimum, uz `horizon_clamped: true` u odgovoru).
-- Skalabilnost na ostale gradove (Birmingham/Glasgow/Nottingham iz istog dataset-a) je
-  opciona i nije rađena - vidi `MASTER_PLAN.md`, poglavlje 8.
+- **Ostali gradovi (Birmingham, Glasgow, Nottingham) nisu u aplikaciji**, jer za njihove
+  parkinge nema koordinata. Model predikcije je na njima proveren u koraku 7
+  (`ml/other_cities.py`, `PROGRESS.md`).
 - Bez baze podataka, autentifikacije ili automatizovanih testova - fokus je na tome da
   ceo lanac radi end-to-end i da je pošteno (bez curenja budućnosti u predikciju).
 

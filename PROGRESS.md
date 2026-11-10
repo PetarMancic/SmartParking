@@ -557,7 +557,28 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
     - The Forum je treći iako je predviđen kao 100% pun, jer linearni skor dozvoljava da blizina nadoknadi nultu dostupnost. To je navedeno kao mogući budući rad: označiti ili izostaviti parkinge predviđene kao pune.
     - Costessey P&R nema merenje od 17.11. u 19 h, pa nije kandidat.
     - Thickthorn (7,6 min vožnje) je ispred Sprowstona i Postwicka (17 i 22 min).
-  - Iz `izbor_pondera.csv`: prvi korak pravila prolazi 168 od 231 kombinacije. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
+  - Iz `izbor_pondera.csv`: prvi korak pravila prolazi 168 od 231 kombinacije.
+- Poglavlje 9 (Arhitektura i implementacija):
+  - `rad_9_1_arhitektura.png` (`plot_architecture`): dijagram tri dela sistema.
+  - Snimci ekrana `rad_9_2_aplikacija.jpg`, `rad_9_3_preporuke.png`, `rad_9_4_predikcija_stvarnost.png`:
+    - Chrome bez prozora, sa privremenim profilom, preko DevTools protokola (pomoćni skript van repoa, 1440×900, dvostruka rezolucija).
+    - Scenario kao u tabeli 8.1: sub 18.11.2017. 10 h, Bowthorpe → centar.
+    - Lista preporuka u aplikaciji poklapa se sa tabelom 8.1 (Rose Lane 27,79%, skor 0,31).
+    - Kartica „Predikcija vs stvarnost” za Rose Lane: MAE za taj dan 12,46 (prognoza iz 10 h), 17,61 (tipična kriva), 4,62 (sat unapred).
+    - Stari snimci iz `C:\FAX\Master rad\` (28.10.) nisu korišćeni, jer prikazuju „Saobraćaj” i ponderе pre koraka 6.
+  - Nacrt 9.1–9.5 je ubačen u Word: tabele 9.1–9.4 (tehnologije, endpointi, vreme prognoze, vreme odgovora API-ja) i slike 9.1–9.4.
+  - **Ispravka backenda (performanse):** `backend/parks.py` je u `load_parks()` na svaki API zahtev ponovo čitao ceo `Norfolk.csv` da bi dobio kapacitete. Svaki odgovor je zato trajao ~0,5 s, a frontend osvežava podatke na 3 s. Sada se kapaciteti čitaju jednom (`_capacities`, `lru_cache`); `load_parks()` i dalje vraća novu listu na svaki poziv.
+    - Medijana vremena odgovora, pre → posle izmene (lokalno, 20–30 zahteva):
+
+      | Zahtev | Pre | Posle |
+      |---|---|---|
+      | `/state` | 551 ms | 16 ms |
+      | `/state` sa prognozom | 600 ms | 74 ms |
+      | `/recommend` | 606 ms | 68 ms |
+      | `/history` | 585 ms | 24 ms |
+      | `/compare` | 682 ms | 153 ms |
+    - Preporuka za primer iz tabele 8.1 je identična pre i posle izmene.
+  - README: ispravljen zastareo navod da provera u drugim gradovima „nije rađena”. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
 
 ### Korak 8 — Higijena projekta ✅
 
