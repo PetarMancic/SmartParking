@@ -9,6 +9,7 @@ niti ulazi u preporuku - ne izmisljaju se koordinate.
 
 import json
 import os
+from functools import lru_cache
 
 from ml.data_prep import DEFAULT_CITY, load_raw
 
@@ -20,18 +21,23 @@ with open(COORDINATES_PATH, encoding="utf-8") as f:
 _COORDS_BY_CODE = {entry["code"]: entry for entry in _coords_config["parks"]}
 
 
-def load_parks(city: str = DEFAULT_CITY) -> list[dict]:
+@lru_cache(maxsize=None)
+def _capacities(city: str) -> dict[str, int]:
+    """Kapacitet po parkingu, procitan iz CSV-a jednom po gradu. Ranije se CSV citao
+    na svaki API zahtev (~0,5 s); istorijski podaci se ne menjaju, pa se cuvaju."""
     df = load_raw(city)
-    capacities = df.groupby("SystemCodeNumber")["Capacity"].first()
+    return {park_id: int(c) for park_id, c in df.groupby("SystemCodeNumber")["Capacity"].first().items()}
 
+
+def load_parks(city: str = DEFAULT_CITY) -> list[dict]:
     parks = []
-    for park_id, capacity in capacities.items():
+    for park_id, capacity in _capacities(city).items():
         meta = _COORDS_BY_CODE.get(park_id, {})
         parks.append(
             {
                 "park_id": park_id,
                 "name": meta.get("name"),
-                "capacity": int(capacity),
+                "capacity": capacity,
                 "lat": meta.get("lat"),
                 "lng": meta.get("lon"),
                 "type": meta.get("type"),
