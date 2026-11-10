@@ -578,7 +578,17 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
       | `/history` | 585 ms | 24 ms |
       | `/compare` | 682 ms | 153 ms |
     - Preporuka za primer iz tabele 8.1 je identična pre i posle izmene.
-  - README: ispravljen zastareo navod da provera u drugim gradovima „nije rađena”. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
+  - README: ispravljen zastareo navod da provera u drugim gradovima „nije rađena”.
+- Poglavlje 10 (Evaluacija preporuke i diskusija):
+  - `rad_10_1_pun_po_planiranju.png` (`plot_recommendation_by_lead`, iz `eval_recommender_strategije.csv`): ista slika kao `eval_recommender_po_planiranju.png`, u širini teksta i sa decimalnim zarezom.
+  - Nacrt 10.1–10.5 je ubačen u Word: tabele 10.1–10.5 (strategije, rezultati, subota, pragovi, izbor pondera uz druge pretpostavke) i slika 10.1.
+  - **Napomena mentora:** cilj rada je da model predvidi zauzetost i predloži parking, a ne zadovoljstvo korisnika. To je istaknuto u prvom pasusu 10.1 i ponovljeno u 10.5. Jedna rečenica o cilju preporuke dodata je na početak 8.1. Isto treba napisati i u Uvodu i poglavlju 2.
+  - **Novi navodi iz postojećih rezultata:**
+    - Preporuka sa XGBoost-om smanjuje dolazak na pun parking 25–32 puta (prag 95%), odnosno 12–26 puta na sva tri praga.
+    - Razlika XGBoost-a i savršene prognoze je < 0,4 p.p. na svakom vremenu planiranja. U ovoj postavci tačniji model ne bi mnogo popravio preporuku.
+    - Ni savršena prognoza nema 0% punih (~0,8%), jer linearni skor ponekad bira pun parking vrlo blizu cilja (kao The Forum u tabeli 8.1).
+    - Uz pretpostavljenih 15 min traženja mesta očekivano vreme vozača bez sistema je ~20,1 min (16,92 + 0,215 · 15), isto kao uz preporuku.
+  - Uklonjen je raniji navod da su novembar i decembar „teži” od oktobra: za oktobar nema broja za strategiju „najbliži”, pa navod nije potkrepljen. Pad sa 0,40% (oktobar) na 0,6–0,9% (nov.–dec.) opisan je kao očekivan pri prelasku na podatke koje izbor pondera nije video. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
 
 ### Korak 8 — Higijena projekta ✅
 

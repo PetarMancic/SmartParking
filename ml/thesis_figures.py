@@ -32,6 +32,8 @@ Poglavlje 8 (sistem preporuke):
 Poglavlje 9 (arhitektura):
   rad_9_1_arhitektura.png        moduli sistema: priprema i ucenje, backend, frontend
   (snimci ekrana aplikacije nisu iz ovog skripta: rad_9_*_*.png iz headless Chrome-a, vidi PROGRESS.md)
+Poglavlje 10 (evaluacija preporuke), iz sacuvanih rezultata ml/eval_recommender.py:
+  rad_10_1_pun_po_planiranju.png dolazak na pun parking po vremenu planiranja, svi / samo gradski parkinzi
 Poglavlje 4.6 (SHAP i ablacija), iz sacuvanih rezultata koraka 5 (ml/analyze_model.py):
   rad_4_6_shap.png              prosecan |SHAP| doprinos ulaza po grupi horizonata
   rad_4_7_ablacija.png          greska po horizontu za model bez pojedinih grupa ulaza
@@ -999,6 +1001,50 @@ def plot_architecture() -> None:
     ax.axis("off")
     fig.tight_layout(pad=0.2)
     _save(fig, "rad_9_1_arhitektura.png")
+    plt.close(fig)
+
+
+# Ista paleta i oblici kao ml/eval_recommender.py (PLOT_STYLE): siva = vozac bez sistema.
+LEAD_STYLE = {
+    "najblizi": ("#898781", "s", "-", "najbliži cilju (bez sistema)"),
+    "naivna": ("#eb6834", "^", "-", "preporuka, naivna prognoza"),
+    "model": ("#2a78d6", "o", "-", "preporuka, XGBoost"),
+    "oracle": ("#1baf7a", "D", "--", "preporuka, savršena prognoza"),
+}
+
+
+def plot_recommendation_by_lead() -> None:
+    """Slika 10.1: dolazak na pun parking (>= 95%) po vremenu planiranja, novembar i
+    decembar 2017 (rezultati ml/eval_recommender.py, eval_recommender_strategije.csv)."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "eval_recommender_strategije.csv"))
+    fig, axes = plt.subplots(1, 2, figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45), sharey=True)
+    for ax, (scenario, title) in zip(axes, (("svi_parkinzi", "a) svi parkinzi (sa Park & Ride)"),
+                                            ("samo_gradski", "b) samo gradski parkinzi"))):
+        ends = []
+        for strategy, (color, marker, style, label) in LEAD_STYLE.items():
+            s = table[(table["scenario"] == scenario) & (table["strategy"] == strategy)].sort_values("lead_min")
+            ax.plot(s["lead_min"] / 60, s["pun_95_pct"], color=color, marker=marker, linestyle=style, linewidth=1.8,
+                    markersize=4.5, markerfacecolor="white" if strategy == "oracle" else color, label=label)
+            ends.append(float(s["pun_95_pct"].iloc[-1]))
+        # direktne oznake krajnjih vrednosti; bliske se razmicu, da se ne preklapaju
+        placed = []
+        for value in sorted(ends):
+            y = value if not placed or value - placed[-1] >= 1.3 else placed[-1] + 1.3
+            placed.append(y)
+            ax.text(4.15, y, f"{value:.1f}%".replace(".", ","), fontsize=7.5, color=INK, va="center")
+        ax.set_title(title, fontsize=9, color=INK, loc="left")
+        ax.set_xticks([0, 1, 2, 4])
+        ax.set_xlim(-0.2, 4.8)
+        ax.set_xlabel("Koliko unapred vozač planira (h)", fontsize=8.5, color=MUTED)
+        _style_axes(ax)
+    axes[0].set_ylabel("Dolazak na pun parking (% vožnji)", fontsize=8.5, color=MUTED)
+    axes[0].set_ylim(-0.5, 24)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, 0.84))
+    _save(fig, "rad_10_1_pun_po_planiranju.png")
     plt.close(fig)
 
 
