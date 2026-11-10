@@ -541,6 +541,12 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
 - U Word fajl su ubačeni nacrti potpoglavlja 3.1–3.4 (celo poglavlje 3) i 4.1–4.6 (celo poglavlje 4), zatim celo poglavlje 5 (5.1–5.5, tabela 5.1: primer promene ranga A/B sa i bez P&R u listi, relativna naspram fiksne normalizacije); teorijski deo (pogl. 3–5, ~17 strana) je kompletan nacrt: tekst, slike 3.1–3.4 i 4.1–4.7, formule 3.1–3.6, 4.1–4.9 i 5.1–5.3, tabela 4.1 (parametri XGBoost-a: 400 stabala, η 0,05, dubina 6, subsample i colsample 0,8, λ 1, γ 0, histogram 256 intervala, početna prognoza 0,42), reference [9]–[17]. Nacrt autor prilagođava svojim rečima.
 - **Nasumična naspram hronološke podele** (`python ml/analyze_model.py podela`, `ml/output/analiza_podela.csv`; za potpoglavlje 3.3). Isti model i parametri. Hronološki (trening do 30.9.2017, test okt.–dec.): MAE **4,85**. Nasumično 84/16 unutar perioda pre oktobra: provera na nasumičnih 16% daje **4,41**, a isti model na okt.–dec. **4,84**. Nasumična podela precenjuje tačnost za ~9% (na 30 min 2,69 naspram 2,87; na 8 h 5,01 naspram 5,71). Sam model nije lošiji (4,84 ≈ 4,85), samo je procena optimistična. Deo razlike može poticati i od toga što je period okt.–dec. teži od proseka godine; efekat nije razdvojen.
 - `rad_3_4_podela_podataka.png` (potpoglavlje 3.3): vremenska linija podele (model: trening do 30.9.2017 / test; preporuka: validacija okt. / test nov.–dec.).
+- Poglavlje 7 (Model predikcije): slike su ponovo nacrtane iz sačuvanih rezultata koraka 4, 5 i 7 (bez novog treniranja):
+  - `rad_7_1_poredjenje_modela.png` (iz `poredjenje_modela_po_horizontu.csv`; „poslednja vrednost” nije prikazana, jer dostiže 34 p.p.);
+  - `rad_7_2_greske.png` (iz `analiza_greska_po_satu.csv` i `analiza_greska_po_popunjenosti.csv`);
+  - `rad_7_3_gradovi.png` i `rad_7_4_prenos.png` (iz `gradovi_po_horizontu.csv` i `gradovi_tacnost.csv`).
+  
+  Nacrt poglavlja 7 (7.1–7.6) je ubačen u Word: tabele 7.1–7.6 (ulazi, poređenje modela, dužina treninga, jedan naspram specijalizovanih modela, zamena za `y_lastweek`, gradovi) i slike 7.1–7.4. U tekstu je navedeno da ponovni trening daje 4,85 umesto 4,83 (razlika od broja niti). Sve tabele u Word fajlu podešene su da se ne lome preko strane.
 
 ### Korak 8 — Higijena projekta ✅
 

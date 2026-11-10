@@ -21,6 +21,11 @@ Poglavlje 6 (podaci):
   rad_6_1_lokacije.png          polozaj 15 parkinga u odnosu na centar Norwicha (celo podrucje i centar)
   rad_6_2_kopirane_nedelje.png  tri uzastopna utorka: B&Q (kopija prethodne nedelje) naspram The Foruma
   rad_6_tabela_parkinga.csv     naziv, tip, kapacitet i prosecna zauzetost parkinga (tabela 6.2)
+Poglavlje 7 (model predikcije), iz sacuvanih rezultata koraka 4, 5 i 7 (bez novog treniranja):
+  rad_7_1_poredjenje_modela.png  MAE po horizontu: modeli i referentne prognoze
+  rad_7_2_greske.png             a) MAE po satu (gradski / P&R), b) MAE po stvarnoj popunjenosti
+  rad_7_3_gradovi.png            MAE po horizontu, sopstveni model svakog grada
+  rad_7_4_prenos.png             prenos Norfolk modela na druge gradove
 Poglavlje 4.6 (SHAP i ablacija), iz sacuvanih rezultata koraka 5 (ml/analyze_model.py):
   rad_4_6_shap.png              prosecan |SHAP| doprinos ulaza po grupi horizonata
   rad_4_7_ablacija.png          greska po horizontu za model bez pojedinih grupa ulaza
@@ -702,6 +707,129 @@ def plot_copied_weeks() -> None:
     fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
     fig.tight_layout(rect=(0, 0, 1, 0.88))
     _save(fig, "rad_6_2_kopirane_nedelje.png")
+    plt.close(fig)
+
+
+# Poredjenje modela: ista validirana paleta kao u ml/compare_models.py; referentne prognoze sive.
+MODEL_STYLE = {
+    "XGBoost": ("#2a78d6", "o", "-", "XGBoost"),
+    "HistGradientBoosting": ("#1baf7a", "D", "-", "HistGradientBoosting"),
+    "Random Forest": ("#e87ba4", "v", "-", "Random Forest"),
+    "Ridge": ("#eda100", "s", "-", "Ridge"),
+    "pre nedelju dana": ("#898781", "s", "--", "pravilo: pre nedelju dana"),
+    "tipicna kriva": ("#898781", "x", "-.", "prosečan profil"),
+}
+
+
+def plot_model_comparison() -> None:
+    """Slika 7.1: MAE po horizontu za sve modele i referentne prognoze (korak 4,
+    ml/output/poredjenje_modela_po_horizontu.csv). "Poslednja vrednost" nije na
+    slici, jer raste do ~34 p.p. i spljostila bi razlike medju modelima."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "poredjenje_modela_po_horizontu.csv"))
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.5))
+    for model, (color, marker, style, label) in MODEL_STYLE.items():
+        s = table[table["model"] == model]
+        ax.plot(s["horizon_minutes"] / 60, s["MAE"], color=color, marker=marker, markersize=3.5, markevery=3,
+                linestyle=style, linewidth=2.2 if model == "XGBoost" else 1.4, label=label)
+    ax.set_xlabel("Horizont prognoze (h)", fontsize=9, color=MUTED)
+    ax.set_ylabel("MAE na testu (p.p.)", fontsize=9, color=MUTED)
+    ax.set_ylim(0, 10)
+    _style_axes(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
+    fig.tight_layout(rect=(0, 0, 1, 0.86))
+    _save(fig, "rad_7_1_poredjenje_modela.png")
+    plt.close(fig)
+
+
+def plot_errors() -> None:
+    """Slika 7.2: a) MAE po satu cilja za gradske i P&R parkinge, b) MAE po stvarnoj
+    popunjenosti (korak 5, analiza_greska_po_satu.csv i _po_popunjenosti.csv).
+    B&Q (tip "ostalo") nije prikazan, jer su mu podaci velikim delom kopirani."""
+    import matplotlib.pyplot as plt
+
+    by_hour = pd.read_csv(os.path.join(OUTPUT_DIR, "analiza_greska_po_satu.csv"))
+    by_band = pd.read_csv(os.path.join(OUTPUT_DIR, "analiza_greska_po_popunjenosti.csv"))
+    fig, (ax_h, ax_b) = plt.subplots(1, 2, figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.42),
+                                     gridspec_kw={"width_ratios": [1.5, 1]})
+    for column, label in (("grad", "gradski parkinzi"), ("Park & Ride", "Park & Ride")):
+        ax_h.plot(by_hour["sat"], by_hour[column], color=COLORS[column], marker="o", markersize=3, linewidth=1.8,
+                  label=label)
+    ax_h.set_xticks([8, 11, 14, 17, 20, 23])
+    ax_h.set_xlabel("Sat ciljnog trenutka", fontsize=8, color=MUTED)
+    ax_h.set_ylabel("MAE (p.p.)", fontsize=8, color=MUTED)
+    ax_h.set_title("a) po dobu dana", fontsize=9, color=INK, loc="left")
+    ax_h.set_ylim(0, 10)
+    ax_h.legend(frameon=False, fontsize=8, loc="upper left")
+    bars = ax_b.bar(range(len(by_band)), by_band["MAE"], color=COLORS["grad"], width=0.6)
+    for bar, (_, row) in zip(bars, by_band.iterrows()):
+        ax_b.annotate(f"{row['MAE']:.1f}".replace(".", ","), (bar.get_x() + bar.get_width() / 2, row["MAE"]),
+                      xytext=(0, 2), textcoords="offset points", ha="center", fontsize=8, color=INK)
+    ax_b.set_xticks(range(len(by_band)), by_band["pun"])
+    ax_b.set_xlabel("Stvarna popunjenost", fontsize=8, color=MUTED)
+    ax_b.set_title("b) po popunjenosti", fontsize=9, color=INK, loc="left")
+    ax_b.set_ylim(0, 10)
+    for ax in (ax_h, ax_b):
+        _style_axes(ax)
+    fig.tight_layout()
+    _save(fig, "rad_7_2_greske.png")
+    plt.close(fig)
+
+
+CITY_ORDER = ["norfolk", "birmingham", "glasgow", "nottingham"]
+CITY_LABEL = {"norfolk": "Norwich (Norfolk)", "birmingham": "Birmingham", "glasgow": "Glasgow", "nottingham": "Nottingham"}
+CITY_STYLE = {"norfolk": ("#2a78d6", "o"), "birmingham": ("#eda100", "s"), "glasgow": ("#1baf7a", "D"),
+              "nottingham": ("#e87ba4", "v")}
+
+
+def plot_cities() -> None:
+    """Slike 7.3 i 7.4 iz rezultata koraka 7 (gradovi_po_horizontu.csv, gradovi_tacnost.csv)."""
+    import matplotlib.pyplot as plt
+
+    horizons = pd.read_csv(os.path.join(OUTPUT_DIR, "gradovi_po_horizontu.csv"))
+    own = horizons[(horizons["varijanta"] == "sopstveni") & (horizons["n"] >= 500)]
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
+    for city in CITY_ORDER:
+        s = own[own["grad"] == city]
+        color, marker = CITY_STYLE[city]
+        ax.plot(s["horizon_minutes"] / 60, s["mae"], color=color, marker=marker, markersize=3, markevery=3,
+                linewidth=1.8, label=CITY_LABEL[city])
+    ax.set_xlabel("Horizont prognoze (h)", fontsize=9, color=MUTED)
+    ax.set_ylabel("MAE na testu (p.p.)", fontsize=9, color=MUTED)
+    ax.set_ylim(0, 8)
+    _style_axes(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=4)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    _save(fig, "rad_7_3_gradovi.png")
+    plt.close(fig)
+
+    summary = pd.read_csv(os.path.join(OUTPUT_DIR, "gradovi_tacnost.csv")).set_index("grad").loc[CITY_ORDER]
+    variants = [("sopstveni_mae", "#2a78d6", "sopstveni model grada"),
+                ("sopstveni_bez_id_mae", "#1baf7a", "sopstveni, bez oznake parkinga"),
+                ("prenos_norfolk_mae", "#eda100", "Norfolk model, bez ponovnog učenja"),
+                ("pre_nedelju_mae", "#898781", "pravilo: pre nedelju dana")]
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
+    width = 0.2
+    x = np.arange(len(summary))
+    for k, (column, color, label) in enumerate(variants):
+        values = summary[column].to_numpy(dtype=float)
+        bars = ax.bar(x + (k - 1.5) * width, np.nan_to_num(values), width * 0.92, color=color, label=label,
+                      edgecolor="white", linewidth=0.8)
+        for bar, value in zip(bars, values):
+            if not np.isnan(value):
+                ax.annotate(f"{value:.1f}".replace(".", ","), (bar.get_x() + bar.get_width() / 2, value),
+                            xytext=(0, 2), textcoords="offset points", ha="center", fontsize=7, color=INK)
+    ax.set_xticks(x, [CITY_LABEL[c] for c in summary.index])
+    ax.set_ylabel("MAE na testu (p.p.)", fontsize=9, color=MUTED)
+    ax.set_ylim(0, 10.5)
+    _style_axes(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, 0.86))
+    _save(fig, "rad_7_4_prenos.png")
     plt.close(fig)
 
 
