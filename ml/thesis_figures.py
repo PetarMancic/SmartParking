@@ -26,6 +26,9 @@ Poglavlje 7 (model predikcije), iz sacuvanih rezultata koraka 4, 5 i 7 (bez novo
   rad_7_2_greske.png             a) MAE po satu (gradski / P&R), b) MAE po stvarnoj popunjenosti
   rad_7_3_gradovi.png            MAE po horizontu, sopstveni model svakog grada
   rad_7_4_prenos.png             prenos Norfolk modela na druge gradove
+Poglavlje 8 (sistem preporuke):
+  rad_8_1_delovi_skora.png       sema tri dela skora: vreme voznje, blizina cilju, dostupnost pri dolasku
+  rad_8_2_izbor_pondera.png      izbor pondera na oktobru 2017: 231 kombinacija i Pareto front (iz koraka 6b)
 Poglavlje 4.6 (SHAP i ablacija), iz sacuvanih rezultata koraka 5 (ml/analyze_model.py):
   rad_4_6_shap.png              prosecan |SHAP| doprinos ulaza po grupi horizonata
   rad_4_7_ablacija.png          greska po horizontu za model bez pojedinih grupa ulaza
@@ -830,6 +833,103 @@ def plot_cities() -> None:
     fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
     fig.tight_layout(rect=(0, 0, 1, 0.86))
     _save(fig, "rad_7_4_prenos.png")
+    plt.close(fig)
+
+
+def plot_score_parts() -> None:
+    """Slika 8.1: sema tri dela skora preporuke (backend/recommender.py). Vreme voznje
+    meri deo puta od polaska do parkinga, blizina deo od parkinga do cilja, a
+    dostupnost se predvidja za trenutak dolaska na parking."""
+    import matplotlib.pyplot as plt
+
+    drive, goal, avail = "#2a78d6", "#1baf7a", "#eb6834"  # validirana paleta
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.36))
+    start, park, dest = (0.0, 0.0), (6.0, 0.0), (9.4, 0.0)
+    ax.annotate("", xy=(park[0] - 0.35, 0), xytext=(start[0] + 0.3, 0),
+                arrowprops={"arrowstyle": "-|>", "color": drive, "lw": 2.2})
+    ax.annotate("", xy=(dest[0] - 0.3, 0), xytext=(park[0] + 0.35, 0),
+                arrowprops={"arrowstyle": "-|>", "color": goal, "lw": 2.2, "linestyle": (0, (4, 2))})
+    ax.plot(*start, marker="o", markersize=11, color=MUTED)
+    ax.plot(*park, marker="s", markersize=19, color=avail)
+    ax.text(*park, "P", ha="center", va="center", fontsize=10, color="white", fontweight="bold")
+    ax.plot(*dest, marker="*", markersize=17, color=INK)
+    for (x, _), label in ((start, "polazak"), (park, "parking"), (dest, "cilj")):
+        ax.text(x, -0.34, label, ha="center", va="top", fontsize=9, color=INK)
+
+    ax.text(3.0, 0.22, "vožnja od polaska do parkinga", ha="center", fontsize=8.5, color=INK)
+    ax.text(3.0, -0.78, "vreme vožnje V (trošak, ponder $w_3$)\n$V$ = min(1, vreme vožnje / 30 min)",
+            ha="center", va="top", fontsize=8, color=MUTED)
+    ax.text(7.7, 0.22, "do cilja: peške,\nsa P&R autobusom", ha="center", fontsize=8.5, color=INK)
+    ax.text(7.7, -0.78, "blizina cilju B (ponder $w_2$)\n$B$ = max(0, 1 − udaljenost / 10 km)",
+            ha="center", va="top", fontsize=8, color=MUTED)
+    ax.text(park[0], 0.9, "dostupnost pri dolasku D (ponder $w_1$)\n$D$ = 1 − predviđena zauzetost u trenutku dolaska",
+            ha="center", fontsize=8, color=MUTED)
+    ax.annotate("", xy=(park[0], 0.32), xytext=(park[0], 0.86), arrowprops={"arrowstyle": "-", "color": avail, "lw": 1})
+    ax.set_xlim(-0.8, 10.2)
+    ax.set_ylim(-1.3, 1.35)
+    ax.axis("off")
+    fig.tight_layout()
+    _save(fig, "rad_8_1_delovi_skora.png")
+    plt.close(fig)
+
+
+def _comma(value: float, _pos=None) -> str:
+    return f"{value:g}".replace(".", ",")
+
+
+def plot_weight_selection() -> None:
+    """Slika 8.2: izbor pondera na validacionom periodu (oktobar 2017), iz rezultata
+    koraka 6b (izbor_pondera.csv, izbor_pondera_pareto.csv): a) svih 231 kombinacija i
+    Pareto front, b) uvecan ravan deo oko izabrane kombinacije."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    from matplotlib.ticker import FuncFormatter
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "izbor_pondera.csv"))
+    front = pd.read_csv(os.path.join(OUTPUT_DIR, "izbor_pondera_pareto.csv")).sort_values("vreme_do_cilja_min")
+
+    def row(w1, w2):
+        return table[np.isclose(table["w1"], w1) & np.isclose(table["w2"], w2)].iloc[0]
+
+    chosen, hand, zero_risk = row(0.15, 0.40), row(0.55, 0.30), row(0.45, 0.35)
+    blue, orange, gray = "#2a78d6", "#eb6834", "#898781"
+    tolerance = table["pun_95_pct"].min() + 0.5
+    zoom = (19.4, 22.7, -0.12, 1.3)
+
+    fig, (ax_all, ax_zoom) = plt.subplots(1, 2, figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.5),
+                                          gridspec_kw={"width_ratios": [1.15, 1]})
+    for ax in (ax_all, ax_zoom):
+        ax.scatter(table["vreme_do_cilja_min"], table["pun_95_pct"], s=9, color=gray, alpha=0.45, linewidths=0,
+                   label="sve kombinacije (231)")
+        ax.plot(front["vreme_do_cilja_min"], front["pun_95_pct"], color=blue, linewidth=1.6, marker="o",
+                markersize=2.8, label="Pareto front")
+        ax.scatter([hand["vreme_do_cilja_min"]], [hand["pun_95_pct"]], s=40, marker="s", color=orange, zorder=4,
+                   edgecolors="white", linewidths=1, label="ručno izabrani ponderi")
+        ax.scatter([chosen["vreme_do_cilja_min"]], [chosen["pun_95_pct"]], s=60, marker="D", color=blue, zorder=5,
+                   edgecolors="white", linewidths=1.2, label="izabrano pravilom")
+        ax.axhline(tolerance, color=MUTED, linestyle=":", linewidth=1, label="dozvoljen rizik (najmanji + 0,5 p.p.)")
+        ax.set_xlabel("Prosečno vreme od polaska do cilja (min)", fontsize=8.5, color=MUTED)
+        ax.yaxis.set_major_formatter(FuncFormatter(_comma))
+        ax.xaxis.set_major_formatter(FuncFormatter(_comma))
+        _style_axes(ax)
+    ax_all.set_ylabel("Dolazak na pun parking (% vožnji)", fontsize=8.5, color=MUTED)
+    ax_all.add_patch(Rectangle((zoom[0], zoom[2]), zoom[1] - zoom[0], zoom[3] - zoom[2], fill=False,
+                               edgecolor=INK, linewidth=0.8, linestyle="--"))
+    ax_all.set_title("a) sve kombinacije", fontsize=9, color=INK, loc="left")
+    ax_zoom.set_title("b) uvećana oblast oko izabrane", fontsize=9, color=INK, loc="left")
+    ax_zoom.set_xlim(zoom[0], zoom[1])
+    ax_zoom.set_ylim(zoom[2], zoom[3])
+    # natpisi pondera (w1 / w2 / w3) u praznom gornjem delu, sa linijom do tacke
+    for point, text, xy_text, align in ((chosen, "0,15 / 0,40 / 0,45", (19.5, 1.05), "left"),
+                                        (zero_risk, "0,45 / 0,35 / 0,20", (21.0, 0.8), "center"),
+                                        (hand, "0,55 / 0,30 / 0,15", (22.65, 1.05), "right")):
+        ax_zoom.annotate(text, (point["vreme_do_cilja_min"], point["pun_95_pct"]), xytext=xy_text,
+                         fontsize=7.5, color=INK, ha=align, va="bottom",
+                         arrowprops={"arrowstyle": "-", "color": MUTED, "lw": 0.7, "shrinkA": 0})
+    handles, labels = ax_all.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
+    fig.tight_layout(rect=(0, 0, 1, 0.85))
+    _save(fig, "rad_8_2_izbor_pondera.png")
     plt.close(fig)
 
 

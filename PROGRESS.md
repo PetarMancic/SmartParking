@@ -547,6 +547,17 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
   - `rad_7_3_gradovi.png` i `rad_7_4_prenos.png` (iz `gradovi_po_horizontu.csv` i `gradovi_tacnost.csv`).
   
   Nacrt poglavlja 7 (7.1–7.6) je ubačen u Word: tabele 7.1–7.6 (ulazi, poređenje modela, dužina treninga, jedan naspram specijalizovanih modela, zamena za `y_lastweek`, gradovi) i slike 7.1–7.4. U tekstu je navedeno da ponovni trening daje 4,85 umesto 4,83 (razlika od broja niti). Sve tabele u Word fajlu podešene su da se ne lome preko strane.
+- Poglavlje 8 (Sistem preporuke):
+  - `rad_8_1_delovi_skora.png`: šema tri dela skora;
+  - `rad_8_2_izbor_pondera.png`: izbor pondera iz `izbor_pondera.csv` i `izbor_pondera_pareto.csv`, ceo raspon i uvećana oblast oko izabrane kombinacije.
+
+  Nacrt 8.1–8.4 je ubačen u Word: formule 8.1–8.5, tabele 8.1–8.3, slike 8.1 i 8.2.
+  - **Tabela 8.1** je primer iz demo režima: Bowthorpe → centar, sub 18.11.2017. 10 h, konačni ponderi, `recommend_parks` iz backenda.
+    - Rose Lane je prvi (predviđeno 27,8%, stvarno 23,4%).
+    - The Forum je treći iako je predviđen kao 100% pun, jer linearni skor dozvoljava da blizina nadoknadi nultu dostupnost. To je navedeno kao mogući budući rad: označiti ili izostaviti parkinge predviđene kao pune.
+    - Costessey P&R nema merenje od 17.11. u 19 h, pa nije kandidat.
+    - Thickthorn (7,6 min vožnje) je ispred Sprowstona i Postwicka (17 i 22 min).
+  - Iz `izbor_pondera.csv`: prvi korak pravila prolazi 168 od 231 kombinacije. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
 
 ### Korak 8 — Higijena projekta ✅
 
