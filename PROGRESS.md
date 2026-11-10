@@ -557,7 +557,7 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
     - The Forum je treći iako je predviđen kao 100% pun, jer linearni skor dozvoljava da blizina nadoknadi nultu dostupnost. To je navedeno kao mogući budući rad: označiti ili izostaviti parkinge predviđene kao pune.
     - Costessey P&R nema merenje od 17.11. u 19 h, pa nije kandidat.
     - Thickthorn (7,6 min vožnje) je ispred Sprowstona i Postwicka (17 i 22 min).
-  - Iz `izbor_pondera.csv`: prvi korak pravila prolazi 168 od 231 kombinacije.
+  - Iz `izbor_pondera.csv`: prvi korak pravila prolazi 168 od 231 kombinacije. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
 - Poglavlje 9 (Arhitektura i implementacija):
   - `rad_9_1_arhitektura.png` (`plot_architecture`): dijagram tri dela sistema.
   - Snimci ekrana `rad_9_2_aplikacija.jpg`, `rad_9_3_preporuke.png`, `rad_9_4_predikcija_stvarnost.png`:
@@ -588,7 +588,21 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
     - Razlika XGBoost-a i savršene prognoze je < 0,4 p.p. na svakom vremenu planiranja. U ovoj postavci tačniji model ne bi mnogo popravio preporuku.
     - Ni savršena prognoza nema 0% punih (~0,8%), jer linearni skor ponekad bira pun parking vrlo blizu cilja (kao The Forum u tabeli 8.1).
     - Uz pretpostavljenih 15 min traženja mesta očekivano vreme vozača bez sistema je ~20,1 min (16,92 + 0,215 · 15), isto kao uz preporuku.
-  - Uklonjen je raniji navod da su novembar i decembar „teži” od oktobra: za oktobar nema broja za strategiju „najbliži”, pa navod nije potkrepljen. Pad sa 0,40% (oktobar) na 0,6–0,9% (nov.–dec.) opisan je kao očekivan pri prelasku na podatke koje izbor pondera nije video. Ručni ponderi 0,55 / 0,30 / 0,15 nisu na Pareto frontu: 0,45 / 0,35 / 0,20 takođe ima 0% punih, a kraća je za 1,07 min (21,26 naspram 22,33).
+  - Uklonjen je raniji navod da su novembar i decembar „teži” od oktobra: za oktobar nema broja za strategiju „najbliži”, pa navod nije potkrepljen. Pad sa 0,40% (oktobar) na 0,6–0,9% (nov.–dec.) opisan je kao očekivan pri prelasku na podatke koje izbor pondera nije video.
+- Poglavlje 2 (Definicija problema i pregled oblasti):
+  - Nacrt 2.1–2.6 je ubačen u Word, sa formulom 2.1 (preporuka = parking sa najvećim skorom). Cilj rada (predikcija i preporuka slobodnog parkinga, ne zadovoljstvo korisnika) naveden je i u 2.1.
+  - **Nove reference [18]–[24]**, sve proverene preko IEEE Xplore, DBLP, RePEc, Crossref i kataloga biblioteka:
+    - Shoup 2006, „Cruising for Parking”;
+    - Rajabioun i Ioannou 2015;
+    - Zheng, Rajasegarar i Leckie 2015;
+    - Vlahogianni i saradnici 2016;
+    - Camero i saradnici 2019;
+    - Geng i Cassandras 2013;
+    - Shin i Jun 2014.
+
+    Dopunjeni su bibliografski podaci referenci [1], [6] i [7]. Ostale reference još nemaju volumen i strane (provera svih referenci je u planu).
+  - Cifra „30% saobraćaja kruži tražeći parking” namerno nije korišćena: to je prosek malog broja studija, a novija istraživanja ga smatraju precenjenim. U radu je raspon iz Shoupovog pregleda (3,5–14 min, 8–74% vozila).
+  - Pomoćne skripte za pisanje rada, rezervne kopije i rezultati koji se navode kao „van repoa” premešteni su iz privremenog foldera sesije u `../pisanje_rada/` (uputstvo u `README.txt`). Novo: `keep_headings.py` sprečava da naslov ostane sam na dnu strane.
 
 ### Korak 8 — Higijena projekta ✅
 
