@@ -17,6 +17,10 @@ Poglavlje 4.3 (gradient boosting):
   rad_4_4_boosting_iteracije.png  greska XGBoost-a na treningu i testu posle svakog dodatog stabla
 Poglavlje 4.5 (Ridge):
   rad_4_5_linearni_koeficijenti.png  koeficijenti linearne regresije po horizontu naspram jednog modela
+Poglavlje 6 (podaci):
+  rad_6_1_lokacije.png          polozaj 15 parkinga u odnosu na centar Norwicha (celo podrucje i centar)
+  rad_6_2_kopirane_nedelje.png  tri uzastopna utorka: B&Q (kopija prethodne nedelje) naspram The Foruma
+  rad_6_tabela_parkinga.csv     naziv, tip, kapacitet i prosecna zauzetost parkinga (tabela 6.2)
 Poglavlje 4.6 (SHAP i ablacija), iz sacuvanih rezultata koraka 5 (ml/analyze_model.py):
   rad_4_6_shap.png              prosecan |SHAP| doprinos ulaza po grupi horizonata
   rad_4_7_ablacija.png          greska po horizontu za model bez pojedinih grupa ulaza
@@ -584,6 +588,120 @@ def plot_ablation_from_step5() -> None:
     fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=2)
     fig.tight_layout(rect=(0, 0, 1, 0.8))
     _save(fig, "rad_4_7_ablacija.png")
+    plt.close(fig)
+
+
+CITY_CENTER = (52.6286, 1.2924)  # isto kao u ml/eval_recommender.py (okolina The Forum / pijace)
+TYPE_STYLE = {"grad": ("#2a78d6", "o", "gradski parking"), "Park & Ride": ("#eb6834", "s", "Park & Ride"),
+              "ostalo": ("#898781", "D", "ostalo (parking prodavnice)")}
+SHORT_NAMES = {"Chantry Place (Chapelfield)": "Chantry Place", "Thickthorn Park & Ride": "Thickthorn",
+               "Harford Park & Ride": "Harford", "Sprowston Park & Ride": "Sprowston", "Costessey Park & Ride": "Costessey",
+               "Airport Park & Ride": "Airport", "Postwick Park & Ride": "Postwick", "B&Q Boundary Road": "B&Q"}
+
+
+# Polozaj natpisa u centru (km, poravnanje), sa linijom do tacke - parkinzi su previse blizu za natpis pored tacke.
+CENTER_LABELS = {
+    "St Andrew's": (0.0, 0.62, "center"), "St Giles": (-0.5, 0.36, "right"), "The Forum": (-0.55, 0.0, "right"),
+    "Chantry Place (Chapelfield)": (-0.42, -0.66, "center"), "Castle Quarter 1": (0.45, 0.3, "left"),
+    "Rose Lane": (0.78, 0.06, "left"), "Castle Quarter 2": (0.6, -0.32, "left"), "John Lewis": (0.55, -0.66, "left"),
+}
+
+
+def _km_from_center(lat: float, lon: float) -> tuple[float, float]:
+    """Polozaj u km istocno (x) i severno (y) od centra; dovoljno tacno za grad velicine Norwicha."""
+    return ((lon - CITY_CENTER[1]) * 111.32 * np.cos(np.radians(CITY_CENTER[0])), (lat - CITY_CENTER[0]) * 111.32)
+
+
+def park_table_and_map() -> None:
+    """Tabela 6.2 (CSV) i slika 6.1: tip, kapacitet, prosecna zauzetost i polozaj parkinga."""
+    import json
+
+    import matplotlib.pyplot as plt
+
+    meta = json.load(open(os.path.join(os.path.dirname(__file__), "..", "data", "carparks_norfolk.json"),
+                          encoding="utf-8"))["parks"]
+    series = resample_per_park(load_raw("norfolk"))
+    rows = []
+    for p in meta:
+        s = series[p["code"]].dropna()
+        rows.append({"sifra": p["code"], "naziv": p["name"], "tip": p["type"], "kapacitet": p["capacity"],
+                     "prosecna_zauzetost_pct": round(100 * s.mean(), 1), "dana_merenja": s.index.normalize().nunique(),
+                     "x_km": _km_from_center(p["lat"], p["lon"])[0], "y_km": _km_from_center(p["lat"], p["lon"])[1]})
+    table = pd.DataFrame(rows).sort_values(["tip", "naziv"], key=lambda c: c.map({"grad": 0, "Park & Ride": 1, "ostalo": 2})
+                                           if c.name == "tip" else c)
+    table.round(2).to_csv(os.path.join(OUTPUT_DIR, "rad_6_tabela_parkinga.csv"), index=False)
+    print(table.drop(columns=["x_km", "y_km"]).to_string(index=False))
+
+    fig, (ax_all, ax_center) = plt.subplots(1, 2, figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.5),
+                                            gridspec_kw={"width_ratios": [1.15, 1]})
+    for ax, (xlim, ylim), label_types in ((ax_all, ((-7.5, 7.5), (-7.5, 7.5)), {"Park & Ride", "ostalo"}),
+                                          (ax_center, ((-1.15, 1.35), (-0.85, 0.8)), {"grad"})):
+        if ax is ax_all:
+            for ring in (2, 4, 6):
+                ax.add_patch(plt.Circle((0, 0), ring, fill=False, color=GRID, linewidth=0.8))
+                # oznaka prstena dole desno (tu nema parkinga)
+                ax.text(ring * 0.72, -ring * 0.72, f"{ring} km", fontsize=7, color=MUTED, ha="left", va="top")
+        for park_type, (color, marker, legend) in TYPE_STYLE.items():
+            part = table[table["tip"] == park_type]
+            ax.scatter(part["x_km"], part["y_km"], color=color, marker=marker, s=34, edgecolors="white",
+                       linewidths=0.7, zorder=3, label=legend)
+        for _, row in table.iterrows():
+            if row["tip"] not in label_types:
+                continue
+            name = SHORT_NAMES.get(row["naziv"], row["naziv"])
+            if ax is ax_center:
+                tx, ty, ha = CENTER_LABELS[row["naziv"]]
+                ax.annotate(name, (row["x_km"], row["y_km"]), xytext=(tx, ty), textcoords="data", fontsize=7,
+                            color=INK, ha=ha, va="center",
+                            arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.6, shrinkA=2, shrinkB=3))
+            else:
+                ax.annotate(name, (row["x_km"], row["y_km"]), xytext=(5, 3), textcoords="offset points", fontsize=7,
+                            color=INK, ha="left", va="center")
+        ax.plot(0, 0, marker="+", color=INK, markersize=9, zorder=4)
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        ax.set_aspect("equal")
+        _style_axes(ax)
+        ax.grid(False)
+        ax.set_xlabel("km istočno od centra", fontsize=8, color=MUTED)
+    ax_all.set_ylabel("km severno od centra", fontsize=8, color=MUTED)
+    ax_all.set_title("a) celo područje", fontsize=9, color=INK, loc="left")
+    ax_center.set_title("b) centar (gradski parkinzi)", fontsize=9, color=INK, loc="left")
+    handles, labels = ax_all.get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    _save(fig, "rad_6_1_lokacije.png")
+    plt.close(fig)
+
+
+COPIED_TUESDAYS = ["2017-10-10", "2017-10-17", "2017-10-24"]
+
+
+def plot_copied_weeks() -> None:
+    """Slika 6.2: tri uzastopna utorka na B&Q Boundary Road (podaci su kopija
+    prethodne nedelje) i na The Forum (stvarna merenja), zauzetost na 30 min."""
+    import matplotlib.pyplot as plt
+
+    series = resample_per_park(load_raw("norfolk"))
+    shades = ["#86b6ef", "#2a78d6", "#104281"]  # sekvencijalna plava: tri uzastopne nedelje
+    fig, axes = plt.subplots(1, 2, figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.42), sharey=True)
+    for ax, (code, title) in zip(axes, (("C06391", "a) B&Q Boundary Road"), ("CPN0009", "b) The Forum"))):
+        for day, color in zip(COPIED_TUESDAYS, shades):
+            d = series[code][day]
+            d = d[(d.index.hour >= 8) & (d.index.hour < 23)]
+            t = pd.Timestamp(day)
+            label = f"utorak {t.day}.{t.month}.{t.year}."
+            ax.plot(d.index.hour + d.index.minute / 60, d * 100, color=color, linewidth=1.6, label=label)
+        ax.set_title(title, fontsize=9, color=INK, loc="left")
+        ax.set_xlabel("Sat", fontsize=8, color=MUTED)
+        ax.set_xticks([8, 11, 14, 17, 20, 23])
+        _style_axes(ax)
+    axes[0].set_ylabel("Zauzetost (%)", fontsize=8, color=MUTED)
+    axes[0].set_ylim(0, 100)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=8, loc="upper center", ncol=3)
+    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    _save(fig, "rad_6_2_kopirane_nedelje.png")
     plt.close(fig)
 
 
