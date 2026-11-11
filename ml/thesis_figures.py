@@ -46,8 +46,11 @@ Koriste se samo podaci za trening (pre 1.10.2017). B&Q Boundary Road se ne
 koristi za autokorelaciju, jer su njegovi podaci velikim delom kopija prethodne
 nedelje (PROGRESS.md, korak 7) i vestacki bi podigli autokorelaciju na 7 dana.
 
+Decimalni brojevi na slikama pisu se sa zarezom, kao u tekstu rada (_use_decimal_comma u _save).
+
 Pokretanje (iz korena projekta):
-    python ml/thesis_figures.py
+    python ml/thesis_figures.py                 # sve slike, uz ponovno treniranje za slike 4.1-4.4
+    python ml/thesis_figures.py bez_treninga    # sve slike iz podataka i sacuvanih rezultata, bez treniranja
 """
 
 from __future__ import annotations
@@ -91,7 +94,23 @@ def _style_axes(ax) -> None:
     ax.tick_params(colors=MUTED, labelsize=9)
 
 
+def _use_decimal_comma(fig) -> None:
+    """Automatske oznake na osama sa decimalnim zarezom (0,5 umesto 0.5), kao u tekstu rada.
+    Ose sa rucno zadatim oznakama ili log-skalom se ne menjaju."""
+    from matplotlib.ticker import ScalarFormatter
+
+    class CommaFormatter(ScalarFormatter):
+        def __call__(self, x, pos=None):
+            return super().__call__(x, pos).replace(".", ",")
+
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            if type(axis.get_major_formatter()) is ScalarFormatter:
+                axis.set_major_formatter(CommaFormatter())
+
+
 def _save(fig, name: str) -> None:
+    _use_decimal_comma(fig)
     path = os.path.join(OUTPUT_DIR, name)
     fig.savefig(path, dpi=200)
     print(f"Sacuvan grafik: {path}")
@@ -339,7 +358,14 @@ def plot_tree_depth(train: pd.DataFrame, test: pd.DataFrame) -> None:
         print(f"  dubina {depth}: trening {rows[-1]['MAE_trening']:.2f}, test {rows[-1]['MAE_test']:.2f}")
     table = pd.DataFrame(rows)
     table.round(3).to_csv(os.path.join(OUTPUT_DIR, "rad_4_2_dubina_stabla.csv"), index=False)
+    draw_tree_depth()
 
+
+def draw_tree_depth() -> None:
+    """Crta sliku 4.2 iz sacuvanog CSV-a (rad_4_2_dubina_stabla.csv)."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "rad_4_2_dubina_stabla.csv"))
     fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
     ax.plot(table["dubina"], table["MAE_trening"], color=COLORS["grad"], marker="o", markersize=4, linewidth=1.8,
             label="jedno stablo, trening")
@@ -391,11 +417,18 @@ def plot_forest_size(train: pd.DataFrame, test: pd.DataFrame) -> None:
         print(f"    1 stablo: {maes[0]:.2f}, 10: {maes[9]:.2f}, 100: {maes[-1]:.2f}")
     pd.DataFrame({"broj_stabala": np.arange(1, len(maes) + 1), **curves}).round(3).to_csv(
         os.path.join(OUTPUT_DIR, "rad_4_3_broj_stabala.csv"), index=False)
+    draw_forest_size()
 
+
+def draw_forest_size() -> None:
+    """Crta sliku 4.3 iz sacuvanog CSV-a (rad_4_3_broj_stabala.csv)."""
+    import matplotlib.pyplot as plt
+
+    table = pd.read_csv(os.path.join(OUTPUT_DIR, "rad_4_3_broj_stabala.csv"))
     fig, ax = plt.subplots(figsize=(FIG_WIDTH_IN, FIG_WIDTH_IN * 0.45))
     styles = {"Random Forest (polovina ulaza po podeli)": COLORS["grad"], "bagging (svi ulazi po podeli)": "#1baf7a"}
-    for name, maes in curves.items():
-        ax.plot(np.arange(1, len(maes) + 1), maes, color=styles[name], linewidth=1.8, label=name)
+    for name, color in styles.items():
+        ax.plot(table["broj_stabala"], table[name], color=color, linewidth=1.8, label=name)
     ax.axhline(BEST_SINGLE_TREE_MAE, color=MUTED, linewidth=1, linestyle=":", label="najbolje jedno stablo (dubina 12)")
     ax.axhline(XGBOOST_MAE, color=INK, linewidth=1, linestyle="--", label="XGBoost (400 stabala)")
     ax.set_xscale("log")
@@ -1048,21 +1081,50 @@ def plot_recommendation_by_lead() -> None:
     plt.close(fig)
 
 
-def tree_figures() -> None:
+def redraw_without_training(train: pd.DataFrame | None = None, test: pd.DataFrame | None = None) -> None:
+    """Sve slike za rad iz podataka i sacuvanih rezultata, bez treniranja modela (stabla, sume i
+    XGBoost za slike 4.1-4.4 se ne treniraju ponovo; 4.2-4.4 se crtaju iz svojih CSV-ova).
+    Linearna regresija za sliku 4.5 se racuna ponovo (brza je i deterministicka)."""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    plot_supervised_example()
+    plot_data_split()
+    data_figures()
+    draw_tree_depth()
+    draw_forest_size()
+    draw_boosting_rounds()
+    if train is None:
+        from ml.data_prep import prepare_multi_horizon_dataset
+
+        train, test = prepare_multi_horizon_dataset("norfolk")
+    plot_linear_coefficients(train, test)
+    plot_shap_from_step5()
+    plot_ablation_from_step5()
+    park_table_and_map()
+    plot_copied_weeks()
+    plot_model_comparison()
+    plot_errors()
+    plot_cities()
+    plot_score_parts()
+    plot_weight_selection()
+    plot_architecture()
+    plot_recommendation_by_lead()
+
+
+def main() -> None:
+    """Sve slike, uz ponovno treniranje stabala, suma i XGBoost-a za slike 4.1-4.4."""
     from ml.data_prep import prepare_multi_horizon_dataset
 
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     train, test = prepare_multi_horizon_dataset("norfolk")
     plot_small_tree(train)
     plot_tree_depth(train, test)
     plot_forest_size(train, test)
     plot_boosting_rounds(train, test)
+    redraw_without_training(train, test)
 
 
-def main() -> None:
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    plot_supervised_example()
-    plot_data_split()
-    tree_figures()
+def data_figures() -> None:
+    """Slike 3.1 i 3.2 iz trening podataka."""
     types = {p["park_id"]: p["type"] for p in parks_module.load_parks()}
     series = {k: s[s.index < TRAIN_END] for k, s in resample_per_park(load_raw("norfolk")).items()}
 
@@ -1086,4 +1148,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["bez_treninga"]:
+        redraw_without_training()
+    else:
+        main()

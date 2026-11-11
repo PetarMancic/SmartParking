@@ -632,6 +632,11 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
   - Prenumeracija redom prvog navođenja: svih 45 navoda u tekstu promenjeno je po istoj tabeli, a spisak je preuređen istim redom. Sada je [1] Shoup 2006 (prvi navod u Uvodu), a [24] Shani i Gunawardana. Provereno: prvo navođenje ide 1, 2, …, 24, i svaka referenca je navedena bar jednom.
   - Spisak skraćenica: dodate DATEX II, GRU, OSRM, SAW i SVG; izbačene CSV, ETA i NCC, koje se u radu ne koriste. Spisak ima 16 skraćenica, abecedno.
 - Dodatak 1 uklonjen (odluka autora, 11.11.2026), zajedno sa pominjanjem u Uvodu (`remove_appendix.py`). Rad ima 56 strana.
+- Decimalni zarez na slikama (11.11.2026):
+  - `ml/thesis_figures.py`: `_save` sada automatske oznake na osama piše sa zarezom (`_use_decimal_comma`), kao u tekstu. Ručni natpisi su već imali zarez.
+  - Slike 4.2 i 4.3 crtaju se iz svojih CSV-ova (`draw_tree_depth`, `draw_forest_size`, kao 4.4), pa se ne treniraju ponovo i brojevi ostaju isti.
+  - Nova komanda `python ml/thesis_figures.py bez_treninga` (~40 s) crta sve slike iz podataka i sačuvanih rezultata. `main()` uz to ponovo trenira modele za slike 4.1–4.4.
+  - Promenile su se samo slike sa decimalnim oznakama: 3.2, 4.2, 4.3, 4.4, 4.5 i 6.1. Zamenjene su u Word-u (`../pisanje_rada/skripte/zameni_slike.py`). Ostalih 18 slika u radu identično je fajlovima, dakle nijedna nije zastarela.
 - **Nacrt rada je kompletan** (11.11.2026). Automatska provera celog rada:
   - slike (24), tabele (22) i formule (25) numerisane su bez preskoka i duplikata po poglavljima;
   - svaka slika i tabela pomenuta je u tekstu;
