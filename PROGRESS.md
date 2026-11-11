@@ -607,6 +607,18 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
   - Redosled pasusa: problem (kruženje, Shoup [18]; table pokazuju trenutno, a ne buduće stanje), cilj rada, šta je urađeno (brojevi iz pogl. 7 i 10), doprinos (upućuje na 2.6), organizacija rada po poglavljima.
   - Cilj rada (efikasnost preporuke, ne zadovoljstvo korisnika) ima poseban pasus.
   - Skripta `insert_1.py`; `Section` u `thesis_insert.py` sada prima i naslov poglavlja (`heading_style="Heading 1"`).
+- Poglavlje 11 (Zaključak), 11.11.2026: jedna strana (pravilo fakulteta: najviše 1).
+  - Četiri pasusa: šta je urađeno i cilj (efikasnost, ne zadovoljstvo korisnika), glavni rezultati, moguća primena, budući rad.
+  - Budući rad pokriva sva mesta u tekstu koja upućuju na poglavlje 11:
+    - saobraćaj i mreža puteva (8.2);
+    - pravi senzori i rad uživo;
+    - studija sa korisnicima i povratni efekat;
+    - izostavljanje parkinga predviđenih kao puni ili nelinearna dostupnost (8.1, 10.5);
+    - red vožnje P&R autobusa (10.4);
+    - posebni modeli za najkraće horizonte (7.4);
+    - broj stabala izabran na validacionom periodu (4.3);
+    - LSTM i GRU.
+  - Skripta `insert_11.py`.
 
 ### Korak 8 — Higijena projekta ✅
 
