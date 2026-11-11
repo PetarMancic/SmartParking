@@ -619,6 +619,12 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
     - broj stabala izabran na validacionom periodu (4.3);
     - LSTM i GRU.
   - Skripta `insert_11.py`.
+- Sažetak i Abstract (UK English), 11.11.2026:
+  - Po jedna strana (Sažetak 385 reči, Abstract 467), sa ključnim rečima na istoj strani.
+  - Sadržaj po uputstvu: šta je urađeno, kojim metodama, glavni brojevi i doprinosi, bez opštih fraza. Prvi pasus navodi cilj: meri se efikasnost preporuke, ne zadovoljstvo korisnika.
+  - Ključne reči: pametni grad, predikcija zauzetosti parkinga, XGBoost, sistem preporuke, višekriterijumsko rangiranje, offline evaluacija. Abstract koristi britanske izraze („car park”, „analysed”, „normalised”).
+  - Tekst je običnim slovima, jer je u šablonu kurzivom samo napomena. Skripta `insert_sazetak.py`.
+  - Spisak skraćenica ne sadrži DATEX II, GRU, OSRM, SAW i SVG, iako se koriste u tekstu (otvoreno).
 
 ### Korak 8 — Higijena projekta ✅
 
