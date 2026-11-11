@@ -603,6 +603,10 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
     Dopunjeni su bibliografski podaci referenci [1], [6] i [7]. Ostale reference još nemaju volumen i strane (provera svih referenci je u planu).
   - Cifra „30% saobraćaja kruži tražeći parking” namerno nije korišćena: to je prosek malog broja studija, a novija istraživanja ga smatraju precenjenim. U radu je raspon iz Shoupovog pregleda (3,5–14 min, 8–74% vozila).
   - Pomoćne skripte za pisanje rada, rezervne kopije i rezultati koji se navode kao „van repoa” premešteni su iz privremenog foldera sesije u `../pisanje_rada/` (uputstvo u `README.txt`). Novo: `keep_headings.py` sprečava da naslov ostane sam na dnu strane.
+- Poglavlje 1 (Uvod), 11.11.2026: jedna strana (pravilo fakulteta: najviše 2).
+  - Redosled pasusa: problem (kruženje, Shoup [18]; table pokazuju trenutno, a ne buduće stanje), cilj rada, šta je urađeno (brojevi iz pogl. 7 i 10), doprinos (upućuje na 2.6), organizacija rada po poglavljima.
+  - Cilj rada (efikasnost preporuke, ne zadovoljstvo korisnika) ima poseban pasus.
+  - Skripta `insert_1.py`; `Section` u `thesis_insert.py` sada prima i naslov poglavlja (`heading_style="Heading 1"`).
 
 ### Korak 8 — Higijena projekta ✅
 
