@@ -624,7 +624,13 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
   - Sadržaj po uputstvu: šta je urađeno, kojim metodama, glavni brojevi i doprinosi, bez opštih fraza. Prvi pasus navodi cilj: meri se efikasnost preporuke, ne zadovoljstvo korisnika.
   - Ključne reči: pametni grad, predikcija zauzetosti parkinga, XGBoost, sistem preporuke, višekriterijumsko rangiranje, offline evaluacija. Abstract koristi britanske izraze („car park”, „analysed”, „normalised”).
   - Tekst je običnim slovima, jer je u šablonu kurzivom samo napomena. Skripta `insert_sazetak.py`.
-  - Spisak skraćenica ne sadrži DATEX II, GRU, OSRM, SAW i SVG, iako se koriste u tekstu (otvoreno).
+  - Spisak skraćenica ne sadrži DATEX II, GRU, OSRM, SAW i SVG, iako se koriste u tekstu (rešeno ispod).
+- Literatura i skraćenice, 11.11.2026 (`../pisanje_rada/skripte/references.py`, `abbreviations.py`):
+  - Svih 24 referenci ima pune bibliografske podatke (časopis, volumen, broj, strane, godina; za knjige izdavač i mesto), proverene u izvorima (IEEE Xplore, ACM, Project Euclid, Springer, DBLP, RePEc, katalozi biblioteka).
+    - Kaufman i saradnici: broj članka nije potvrđen, pa nije naveden.
+    - Hyndman i Athanasopoulos: mesto izdanja nije potvrđeno, pa nije navedeno; dodat je link https://otexts.com/fpp3/.
+  - Prenumeracija redom prvog navođenja: svih 45 navoda u tekstu promenjeno je po istoj tabeli, a spisak je preuređen istim redom. Sada je [1] Shoup 2006 (prvi navod u Uvodu), a [24] Shani i Gunawardana. Provereno: prvo navođenje ide 1, 2, …, 24, i svaka referenca je navedena bar jednom.
+  - Spisak skraćenica: dodate DATEX II, GRU, OSRM, SAW i SVG; izbačene CSV, ETA i NCC, koje se u radu ne koriste. Spisak ima 16 skraćenica, abecedno.
 
 ### Korak 8 — Higijena projekta ✅
 
