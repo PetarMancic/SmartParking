@@ -631,6 +631,16 @@ Norfolk je ovde 5,11, a ne 4,83 kao u aplikaciji, jer su uklonjeni kopirani B&Q 
     - Hyndman i Athanasopoulos: mesto izdanja nije potvrđeno, pa nije navedeno; dodat je link https://otexts.com/fpp3/.
   - Prenumeracija redom prvog navođenja: svih 45 navoda u tekstu promenjeno je po istoj tabeli, a spisak je preuređen istim redom. Sada je [1] Shoup 2006 (prvi navod u Uvodu), a [24] Shani i Gunawardana. Provereno: prvo navođenje ide 1, 2, …, 24, i svaka referenca je navedena bar jednom.
   - Spisak skraćenica: dodate DATEX II, GRU, OSRM, SAW i SVG; izbačene CSV, ETA i NCC, koje se u radu ne koriste. Spisak ima 16 skraćenica, abecedno.
+- Dodatak 1 uklonjen (odluka autora, 11.11.2026), zajedno sa pominjanjem u Uvodu (`remove_appendix.py`). Rad ima 56 strana.
+- **Nacrt rada je kompletan** (11.11.2026). Automatska provera celog rada:
+  - slike (24), tabele (22) i formule (25) numerisane su bez preskoka i duplikata po poglavljima;
+  - svaka slika i tabela pomenuta je u tekstu;
+  - nema zaostalih žutih napomena.
+
+  Ostaje autoru:
+  - polja na naslovnoj strani (studijski program, broj indeksa, mesec i godina, zadatak, komisija);
+  - čitanje i prepravka teksta svojim rečima;
+  - slanje mentoru.
 
 ### Korak 8 — Higijena projekta ✅
 
